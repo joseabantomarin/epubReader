@@ -30,11 +30,13 @@ export function createApp(options = {}) {
         useDefaults: true,
         directives: {
           'script-src': ["'self'", 'https://accounts.google.com/gsi/client'],
-          'frame-src': ["'self'", 'https://accounts.google.com'],
+          // blob: needed so foliate-js can embed EPUB chapter content in iframes.
+          'frame-src': ["'self'", 'https://accounts.google.com', 'blob:'],
           'connect-src': ["'self'", 'https://accounts.google.com'],
-          'img-src': ["'self'", 'data:', 'https:'],
+          'img-src': ["'self'", 'data:', 'https:', 'blob:'],
           'style-src': ["'self'", "'unsafe-inline'", 'https://accounts.google.com'],
           'style-src-elem': ["'self'", "'unsafe-inline'", 'https://accounts.google.com'],
+          'worker-src': ["'self'", 'blob:'],
         },
       },
       // Google Sign-In opens a popup that needs to communicate back via
