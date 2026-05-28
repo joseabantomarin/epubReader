@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.env
+.env.local
+server/data/library.db
+server/data/library.db-journal
+server/data/books/
+.DS_Store
+*.log
+coverage/
