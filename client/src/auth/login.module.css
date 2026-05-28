@@ -1,0 +1,20 @@
+.page {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 40px 32px;
+  box-shadow: var(--shadow);
+  text-align: center;
+  width: 100%;
+  max-width: 380px;
+}
+.title { font-size: 32px; margin: 0 0 8px; letter-spacing: -0.5px; }
+.sub { color: var(--muted); margin: 0 0 28px; }
+.btnSlot { display: flex; justify-content: center; }
+.error { color: #b00020; margin-top: 16px; font-size: 14px; }
