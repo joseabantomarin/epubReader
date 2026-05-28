@@ -33,7 +33,8 @@ export function createApp(options = {}) {
           'frame-src': ["'self'", 'https://accounts.google.com'],
           'connect-src': ["'self'", 'https://accounts.google.com'],
           'img-src': ["'self'", 'data:', 'https:'],
-          'style-src': ["'self'", "'unsafe-inline'"],
+          'style-src': ["'self'", "'unsafe-inline'", 'https://accounts.google.com'],
+          'style-src-elem': ["'self'", "'unsafe-inline'", 'https://accounts.google.com'],
         },
       },
     }));
