@@ -76,28 +76,35 @@ export function createBooksRouter(db, dataDir) {
       VALUES (?, ?, ?, ?, ?, ?)
     `).run(userId, title, meta.author, null, 'pending', stat.size);
     const bookId = info.lastInsertRowid;
+    try {
+      const finalEpub = bookPath(dataDir, req.user.sub, bookId);
+      fs.renameSync(tmpPath, finalEpub);
 
-    const finalEpub = bookPath(dataDir, userId, bookId);
-    fs.renameSync(tmpPath, finalEpub);
+      let coverRel = null;
+      if (meta.cover) {
+        const RAW_EXT = (meta.cover.ext === 'jpeg' ? 'jpg' : meta.cover.ext) || 'jpg';
+        const ALLOWED = new Set(['jpg', 'png', 'gif', 'webp']);
+        const ext = ALLOWED.has(RAW_EXT.toLowerCase()) ? RAW_EXT.toLowerCase() : 'jpg';
+        const finalCover = coverPath(dataDir, req.user.sub, bookId, ext);
+        fs.writeFileSync(finalCover, meta.cover.data);
+        coverRel = path.relative(dataDir, finalCover);
+      }
+      db.prepare('UPDATE books SET file_path = ?, cover_path = ? WHERE id = ?')
+        .run(path.relative(dataDir, finalEpub), coverRel, bookId);
 
-    let coverRel = null;
-    if (meta.cover) {
-      const ext = meta.cover.ext === 'jpeg' ? 'jpg' : meta.cover.ext;
-      const finalCover = coverPath(dataDir, userId, bookId, ext);
-      fs.writeFileSync(finalCover, meta.cover.data);
-      coverRel = path.relative(dataDir, finalCover);
+      res.json({
+        id: bookId,
+        title,
+        author: meta.author,
+        coverUrl: coverRel ? `/api/books/${bookId}/cover` : null,
+        percentage: 0,
+        lastReadAt: null,
+      });
+    } catch (err) {
+      db.prepare('DELETE FROM books WHERE id = ?').run(bookId);
+      cleanup();
+      return res.status(500).json({ error: 'storage_failure' });
     }
-    db.prepare('UPDATE books SET file_path = ?, cover_path = ? WHERE id = ?')
-      .run(path.relative(dataDir, finalEpub), coverRel, bookId);
-
-    res.json({
-      id: bookId,
-      title,
-      author: meta.author,
-      coverUrl: coverRel ? `/api/books/${bookId}/cover` : null,
-      percentage: 0,
-      lastReadAt: null,
-    });
   });
 
   r.delete('/', (req, res) => {

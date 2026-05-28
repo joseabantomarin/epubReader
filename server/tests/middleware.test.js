@@ -30,4 +30,16 @@ describe('authRequired', () => {
     expect(res.body.user.sub).toBe(7);
     expect(res.body.user.email).toBe('u@e.com');
   });
+
+  it('accepts a fallback token in body._t when header is absent (for sendBeacon)', async () => {
+    const { signJwt } = await import('../src/auth.js');
+    const token = signJwt({ sub: 99, email: 'b@e.com' });
+    const app = express();
+    app.use(express.json());
+    app.post('/protected', authRequired, (req, res) => res.json({ user: req.user, body: req.body }));
+    const res = await request(app).post('/protected').send({ _t: token, cfi: 'x' });
+    expect(res.status).toBe(200);
+    expect(res.body.user.sub).toBe(99);
+    expect(res.body.body).toEqual({ cfi: 'x' }); // _t stripped
+  });
 });
