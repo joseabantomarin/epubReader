@@ -37,6 +37,10 @@ export function createApp(options = {}) {
           'style-src-elem': ["'self'", "'unsafe-inline'", 'https://accounts.google.com'],
         },
       },
+      // Google Sign-In opens a popup that needs to communicate back via
+      // window.opener.postMessage. The default same-origin COOP would break
+      // that link as soon as the popup navigates to accounts.google.com.
+      crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' },
     }));
     if (!isProd) app.use(cors({ origin: config.clientOrigin }));
   }
