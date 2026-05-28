@@ -28,9 +28,14 @@ CREATE TABLE IF NOT EXISTS reading_progress (
   book_id       INTEGER PRIMARY KEY REFERENCES books(id) ON DELETE CASCADE,
   cfi           TEXT,
   percentage    REAL    DEFAULT 0,
+  total_pages   INTEGER,
   last_read_at  TEXT    DEFAULT CURRENT_TIMESTAMP
 );
 `;
+
+function hasColumn(db, table, column) {
+  return db.prepare(`PRAGMA table_info(${table})`).all().some(r => r.name === column);
+}
 
 export function openDb(filePath) {
   if (filePath !== ':memory:') {
@@ -40,5 +45,9 @@ export function openDb(filePath) {
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
   db.exec(SCHEMA);
+  // Migration: add total_pages to pre-existing databases.
+  if (!hasColumn(db, 'reading_progress', 'total_pages')) {
+    db.exec('ALTER TABLE reading_progress ADD COLUMN total_pages INTEGER');
+  }
   return db;
 }

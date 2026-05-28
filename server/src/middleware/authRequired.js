@@ -9,6 +9,8 @@ export function authRequired(req, res, next) {
   } else if (req.body && typeof req.body._t === 'string') {
     token = req.body._t;
     delete req.body._t;
+  } else if (req.query && typeof req.query._t === 'string') {
+    token = req.query._t;
   }
   if (!token) {
     return res.status(401).json({ error: 'missing_token' });

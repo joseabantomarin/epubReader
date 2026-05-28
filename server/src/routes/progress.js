@@ -16,26 +16,52 @@ export function createProgressRouter(db) {
   r.get('/:id/progress', (req, res) => {
     const book = ownedBook(req, res);
     if (!book) return;
-    const row = db.prepare('SELECT cfi, percentage, last_read_at FROM reading_progress WHERE book_id = ?').get(book.id);
-    if (!row) return res.json({ cfi: null, percentage: 0, lastReadAt: null });
-    res.json({ cfi: row.cfi, percentage: row.percentage, lastReadAt: row.last_read_at });
+    const row = db.prepare(
+      'SELECT cfi, percentage, total_pages, last_read_at FROM reading_progress WHERE book_id = ?'
+    ).get(book.id);
+    if (!row) return res.json({ cfi: null, percentage: 0, totalPages: null, lastReadAt: null });
+    res.json({
+      cfi: row.cfi,
+      percentage: row.percentage,
+      totalPages: row.total_pages,
+      lastReadAt: row.last_read_at,
+    });
   });
 
   r.put('/:id/progress', (req, res) => {
-    const { cfi, percentage } = req.body || {};
-    if (typeof cfi !== 'string' || typeof percentage !== 'number' || Number.isNaN(percentage)) {
-      return res.status(400).json({ error: 'invalid_body' });
+    const { cfi, percentage, totalPages } = req.body || {};
+    if (cfi !== undefined && cfi !== null && typeof cfi !== 'string') {
+      return res.status(400).json({ error: 'invalid_cfi' });
+    }
+    if (percentage !== undefined && percentage !== null
+        && (typeof percentage !== 'number' || Number.isNaN(percentage))) {
+      return res.status(400).json({ error: 'invalid_percentage' });
+    }
+    if (totalPages !== undefined && totalPages !== null
+        && (!Number.isInteger(totalPages) || totalPages < 0)) {
+      return res.status(400).json({ error: 'invalid_total_pages' });
     }
     const book = ownedBook(req, res);
     if (!book) return;
-    db.prepare(`
-      INSERT INTO reading_progress (book_id, cfi, percentage, last_read_at)
-      VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-      ON CONFLICT(book_id) DO UPDATE SET
-        cfi = excluded.cfi,
-        percentage = excluded.percentage,
-        last_read_at = CURRENT_TIMESTAMP
-    `).run(book.id, cfi, percentage);
+    // Existing row? If yes, we can update fields selectively (cfi may be null).
+    const existing = db.prepare('SELECT cfi FROM reading_progress WHERE book_id = ?').get(book.id);
+    if (existing) {
+      db.prepare(`
+        UPDATE reading_progress SET
+          cfi = COALESCE(?, cfi),
+          percentage = COALESCE(?, percentage),
+          total_pages = COALESCE(?, total_pages),
+          last_read_at = CURRENT_TIMESTAMP
+        WHERE book_id = ?
+      `).run(cfi ?? null, percentage ?? null, totalPages ?? null, book.id);
+    } else {
+      // First-time row requires cfi.
+      if (typeof cfi !== 'string') return res.status(400).json({ error: 'missing_cfi' });
+      db.prepare(`
+        INSERT INTO reading_progress (book_id, cfi, percentage, total_pages, last_read_at)
+        VALUES (?, ?, COALESCE(?, 0), ?, CURRENT_TIMESTAMP)
+      `).run(book.id, cfi, percentage ?? null, totalPages ?? null);
+    }
     res.json({ ok: true });
   });
 
