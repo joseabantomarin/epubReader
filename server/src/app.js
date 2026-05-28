@@ -4,6 +4,7 @@ import { openDb } from './db.js';
 import { config } from './config.js';
 import { createAuthRouter } from './routes/auth.js';
 import { createBooksRouter } from './routes/books.js';
+import { createProgressRouter } from './routes/progress.js';
 
 export function createApp(options = {}) {
   const db = options.db || openDb(path.join(config.dataDir, 'library.db'));
@@ -17,6 +18,7 @@ export function createApp(options = {}) {
   app.get('/api/health', (_req, res) => res.json({ ok: true }));
   app.use('/api/auth', createAuthRouter(db));
   app.use('/api/books', createBooksRouter(db, dataDir));
+  app.use('/api/books', createProgressRouter(db));
 
   return app;
 }
