@@ -17,7 +17,7 @@ Aplicación web autohospedada para leer libros EPUB online, con login con Google
   - Botón "Agregar libro" (sube un `.epub`).
   - Modo "Seleccionar" toggleable que habilita "Eliminar (n)" para borrado uno o múltiple.
   - Grid de libros con: portada, título, autor, progreso (%) y fecha de última lectura.
-- Lector EPUB con paginación, navegación, persistencia de posición exacta (CFI) cada 3 s y al cerrar.
+- Lector EPUB con paginación, navegación, persistencia de posición en cada cambio de página del usuario (no por tiempo, no en relocates internos de epub.js).
 - 100% responsive (mobile-first); funciona igual en móvil y desktop.
 - La posición y la biblioteca se persisten en servidor, accesibles desde cualquier dispositivo tras login.
 
@@ -103,6 +103,7 @@ CREATE TABLE reading_progress (
   book_id       INTEGER PRIMARY KEY REFERENCES books(id) ON DELETE CASCADE,
   cfi           TEXT,
   percentage    REAL    DEFAULT 0,
+  total_pages   INTEGER,                      -- book.locations.length() (charsPerLocation=1024)
   last_read_at  TEXT    DEFAULT CURRENT_TIMESTAMP
 );
 ```
@@ -207,10 +208,9 @@ Layout (mobile-first):
 - Header: flecha atrás, título, % de avance.
 - Carga del EPUB con auth: como `new ePub(url)` no permite enviar headers, se hace `fetch('/api/books/:id/file', { headers: { Authorization } })` → `await res.arrayBuffer()` → `ePub(arrayBuffer)`. Se renderiza en un div fullscreen.
 - Al montar: `GET /api/books/:id/progress` → si hay `cfi`, `rendition.display(cfi)`; si no, primera página.
-- `rendition.on('relocated', loc => ...)`:
-  - Calcula `percentage = loc.start.percentage`.
-  - `PUT /api/books/:id/progress` con throttle 3 s (lodash o impl. propia).
-- `beforeunload` y desmontaje envían un último PUT (`navigator.sendBeacon` si está disponible).
+- Persistencia: las llamadas a `rendition.next()` / `rendition.prev()` están envueltas para incrementar un contador `pendingUserNavs`. Cada evento `relocated` que llega solo guarda si hay navegaciones pendientes (y las decrementa). Esto descarta relocates internos (restauración tras `display()`, resize, recálculo de layout) que reportan el cfi del *spread-start* y no la posición precisa del usuario.
+- Tras `display(savedCfi)` hay un periodo de gracia de 500 ms en el que ningún relocate se procesa, para evitar capturar eventos de layout inicial.
+- Indicador de página = `round(percentage × totalPages)`. `totalPages` viene de `book.locations.length()` y se persiste en la fila de `reading_progress` (campo `total_pages`); en la siguiente sesión el indicador se muestra al instante sin esperar a regenerar locations. El cálculo de `percentage` por cfi solo se hace cuando las locations están listas; mientras tanto se conserva el valor leído de DB.
 - Navegación: flechas teclado (← →), botones flotantes en bordes (visibles al hover/tap), gestos swipe en móvil (touchstart/touchend con umbral).
 - Tema: respeta `prefers-color-scheme`. Toggle claro/oscuro persistido en `localStorage` (no en servidor — preferencia local).
 
