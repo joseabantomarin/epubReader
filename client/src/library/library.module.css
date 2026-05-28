@@ -24,6 +24,13 @@
   background: transparent; border: 1px solid var(--border);
   border-radius: 8px; padding: 6px 10px; cursor: pointer; color: inherit;
 }
+.iconBtn {
+  background: transparent; border: 1px solid var(--border);
+  border-radius: 8px; width: 36px; height: 36px;
+  display: grid; place-items: center;
+  cursor: pointer; color: var(--muted);
+}
+.iconBtn:hover { color: var(--fg); border-color: var(--accent); }
 
 .toolbar {
   display: grid;
