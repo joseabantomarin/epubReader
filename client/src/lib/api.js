@@ -25,7 +25,10 @@ async function call(path, { method = 'GET', body, formData, headers = {} } = {})
     finalHeaders['Content-Type'] = 'application/json';
     payload = JSON.stringify(body);
   }
-  const res = await fetch(BASE + path, { method, headers: finalHeaders, body: payload });
+  const res = await fetch(BASE + path, {
+    method, headers: finalHeaders, body: payload,
+    cache: 'no-store',
+  });
   if (res.status === 401) {
     clearAuth();
     if (location.pathname !== '/login') location.assign('/login');
@@ -52,13 +55,19 @@ export const api = {
   },
   deleteBooks: (ids) => call('/api/books', { method: 'DELETE', body: { ids } }),
   getProgress: (bookId) => call(`/api/books/${bookId}/progress`),
-  putProgress: (bookId, cfi, percentage) =>
-    call(`/api/books/${bookId}/progress`, { method: 'PUT', body: { cfi, percentage } }),
+  putProgress: (bookId, cfi, percentage, totalPages) =>
+    call(`/api/books/${bookId}/progress`, {
+      method: 'PUT',
+      body: totalPages != null ? { cfi, percentage, totalPages } : { cfi, percentage },
+    }),
 };
 
 export function bookFileUrl(bookId) {
   return `${BASE}/api/books/${bookId}/file`;
 }
+// Cover is loaded via <img src>, which can't set Authorization. Pass token as query.
 export function bookCoverUrl(bookId) {
-  return `${BASE}/api/books/${bookId}/cover`;
+  const token = getToken();
+  const q = token ? `?_t=${encodeURIComponent(token)}` : '';
+  return `${BASE}/api/books/${bookId}/cover${q}`;
 }
