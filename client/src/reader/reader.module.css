@@ -34,19 +34,25 @@
 .navBtn {
   position: absolute;
   top: 50%; transform: translateY(-50%);
-  background: rgba(0,0,0,.05);
+  background: rgba(255,255,255,.55);
   border: none;
   width: 44px; height: 88px;
-  font-size: 24px;
-  color: inherit;
+  font-size: 28px;
+  color: #800000;
   cursor: pointer;
   display: grid; place-items: center;
   border-radius: 8px;
-  opacity: 0;
-  transition: opacity .2s;
+  z-index: 10;
+  transition: background .15s, color .15s;
 }
-.viewport:hover .navBtn { opacity: 1; }
-@media (hover: none) { .navBtn { opacity: 1; } }
+.navBtn:hover {
+  background: rgba(255,255,255,.75);
+  color: #4d0000;
+}
+@media (prefers-color-scheme: dark) {
+  .navBtn { background: rgba(30,30,38,.55); color: #c66; }
+  .navBtn:hover { background: rgba(30,30,38,.75); color: #e88; }
+}
 .navPrev { left: 8px; }
 .navNext { right: 8px; }
 
