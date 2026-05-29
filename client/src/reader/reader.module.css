@@ -85,6 +85,19 @@
 .navPrev { left: 8px; }
 .navNext { right: 8px; }
 
+@media (max-width: 639px) {
+  .navBtn {
+    top: 0; transform: none;
+    width: 88px; height: 100%;
+    background: transparent;
+    color: transparent;
+    border-radius: 0;
+  }
+  .navBtn:hover { background: transparent; color: transparent; }
+  .navPrev { left: 0; }
+  .navNext { right: 0; }
+}
+
 .loading {
   position: absolute; inset: 0;
   display: grid; place-items: center;

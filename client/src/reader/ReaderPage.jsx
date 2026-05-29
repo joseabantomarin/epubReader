@@ -37,6 +37,10 @@ export default function ReaderPage() {
   const [tocOpen, setTocOpen] = useState(false);
   const [chapter, setChapter] = useState('');
   const [isFullscreen, toggleFullscreen] = useFullscreen();
+  const [handedness] = useState(() => loadSettings().handedness);
+  const leftSideAdvances = handedness === 'left';
+  const onLeftSide = () => leftSideAdvances ? viewRef.current?.next() : viewRef.current?.prev();
+  const onRightSide = () => leftSideAdvances ? viewRef.current?.prev() : viewRef.current?.next();
 
   useEffect(() => {
     let disposed = false;
@@ -268,10 +272,12 @@ export default function ReaderPage() {
       <div className={styles.viewport} ref={containerRef}>
         {loading && <div className={styles.loading}>Cargando libro…</div>}
         {error && <div className={styles.loading} style={{ color: '#b00020' }}>{error}</div>}
-        <button className={`${styles.navBtn} ${styles.navPrev}`} aria-label="Anterior"
-          onClick={() => viewRef.current?.prev()}>‹</button>
-        <button className={`${styles.navBtn} ${styles.navNext}`} aria-label="Siguiente"
-          onClick={() => viewRef.current?.next()}>›</button>
+        <button className={`${styles.navBtn} ${styles.navPrev}`}
+          aria-label={leftSideAdvances ? 'Siguiente' : 'Anterior'}
+          onClick={onLeftSide}>‹</button>
+        <button className={`${styles.navBtn} ${styles.navNext}`}
+          aria-label={leftSideAdvances ? 'Anterior' : 'Siguiente'}
+          onClick={onRightSide}>›</button>
       </div>
       <footer className={styles.footer}>
         <span className={styles.footerPages}>
