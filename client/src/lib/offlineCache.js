@@ -1,9 +1,10 @@
-// Stores book files (EPUB/PDF as ArrayBuffer) in IndexedDB so they can be
-// reopened with no network. Keyed by bookId as string.
+// Stores book files (EPUB/PDF as ArrayBuffer) and cover images (Blob) in
+// IndexedDB so they can be displayed/opened with no network.
 
 const DB_NAME = 'mislibros';
-const STORE = 'books';
-const DB_VERSION = 1;
+const STORE_BOOKS = 'books';
+const STORE_COVERS = 'covers';
+const DB_VERSION = 2;
 
 let dbPromise = null;
 function openDB() {
@@ -12,7 +13,8 @@ function openDB() {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
     req.onupgradeneeded = () => {
       const db = req.result;
-      if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE);
+      if (!db.objectStoreNames.contains(STORE_BOOKS)) db.createObjectStore(STORE_BOOKS);
+      if (!db.objectStoreNames.contains(STORE_COVERS)) db.createObjectStore(STORE_COVERS);
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
@@ -27,37 +29,33 @@ function wrapRequest(req) {
   });
 }
 
-export async function putBookFile(bookId, buffer) {
-  const db = await openDB();
-  const tx = db.transaction(STORE, 'readwrite');
-  return wrapRequest(tx.objectStore(STORE).put(buffer, String(bookId)));
-}
-
-export async function getBookFile(bookId) {
+async function tx(storeName, mode, fn) {
   try {
     const db = await openDB();
-    const tx = db.transaction(STORE, 'readonly');
-    return await wrapRequest(tx.objectStore(STORE).get(String(bookId)));
+    const t = db.transaction(storeName, mode);
+    return await fn(t.objectStore(storeName));
   } catch {
     return null;
   }
 }
 
+export async function putBookFile(bookId, buffer) {
+  return tx(STORE_BOOKS, 'readwrite', (s) => wrapRequest(s.put(buffer, String(bookId))));
+}
+export async function getBookFile(bookId) {
+  return tx(STORE_BOOKS, 'readonly', (s) => wrapRequest(s.get(String(bookId))));
+}
 export async function listCachedBookIds() {
-  try {
-    const db = await openDB();
-    const tx = db.transaction(STORE, 'readonly');
-    const keys = await wrapRequest(tx.objectStore(STORE).getAllKeys());
-    return new Set(keys.map((k) => Number(k)));
-  } catch {
-    return new Set();
-  }
+  const keys = await tx(STORE_BOOKS, 'readonly', (s) => wrapRequest(s.getAllKeys()));
+  return new Set((keys || []).map((k) => Number(k)));
+}
+export async function deleteBookFile(bookId) {
+  return tx(STORE_BOOKS, 'readwrite', (s) => wrapRequest(s.delete(String(bookId))));
 }
 
-export async function deleteBookFile(bookId) {
-  try {
-    const db = await openDB();
-    const tx = db.transaction(STORE, 'readwrite');
-    return await wrapRequest(tx.objectStore(STORE).delete(String(bookId)));
-  } catch { /* swallow */ }
+export async function putCover(bookId, blob) {
+  return tx(STORE_COVERS, 'readwrite', (s) => wrapRequest(s.put(blob, String(bookId))));
+}
+export async function getCover(bookId) {
+  return tx(STORE_COVERS, 'readonly', (s) => wrapRequest(s.get(String(bookId))));
 }

@@ -1,5 +1,7 @@
+import { useEffect, useState } from 'react';
 import styles from './library.module.css';
-import { bookCoverUrl } from '../lib/api.js';
+import { bookCoverUrl, getToken } from '../lib/api.js';
+import { getCover, putCover } from '../lib/offlineCache.js';
 import { percent, relativeTime } from '../lib/format.js';
 
 function hashColor(s) {
@@ -10,6 +12,39 @@ function hashColor(s) {
 
 export default function BookCard({ book, selectionMode, selected, onActivate }) {
   const handleClick = () => onActivate(book);
+  const [coverSrc, setCoverSrc] = useState(null);
+
+  // Cache-first cover: blob URL from IndexedDB if present, else server URL +
+  // store in background. Survives offline reloads.
+  useEffect(() => {
+    if (!book.coverUrl) { setCoverSrc(null); return; }
+    let cancelled = false;
+    let createdUrl = null;
+    (async () => {
+      const cached = await getCover(book.id);
+      if (cached && !cancelled) {
+        createdUrl = URL.createObjectURL(cached);
+        setCoverSrc(createdUrl);
+        return;
+      }
+      const serverUrl = bookCoverUrl(book.id);
+      if (!cancelled) setCoverSrc(serverUrl);
+      try {
+        const res = await fetch(serverUrl, {
+          headers: { Authorization: `Bearer ${getToken()}` },
+        });
+        if (res.ok) {
+          const blob = await res.blob();
+          await putCover(book.id, blob);
+        }
+      } catch { /* offline or other failure — silent */ }
+    })();
+    return () => {
+      cancelled = true;
+      if (createdUrl) URL.revokeObjectURL(createdUrl);
+    };
+  }, [book.id, book.coverUrl]);
+
   return (
     <div
       className={`${styles.card} ${selected ? styles.selected : ''}`}
@@ -19,8 +54,8 @@ export default function BookCard({ book, selectionMode, selected, onActivate }) 
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleClick(); } }}
     >
       <div className={styles.cover} style={{ background: hashColor(book.title || 'x') }}>
-        {book.coverUrl ? (
-          <img src={bookCoverUrl(book.id)} alt="" loading="lazy" />
+        {coverSrc ? (
+          <img src={coverSrc} alt="" loading="lazy" />
         ) : (
           <div className={styles.coverFallback}>
             <strong>{book.title}</strong>
