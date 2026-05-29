@@ -77,9 +77,22 @@
 }
 
 .siteLink {
-  color: var(--muted);
-  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--accent);
+  background: var(--card);
+  border: 1.5px solid var(--accent);
+  font-size: 15px;
+  font-weight: 600;
   text-decoration: none;
-  letter-spacing: 0.3px;
+  padding: 11px 22px;
+  border-radius: 999px;
+  letter-spacing: 0.2px;
+  transition: background .15s, color .15s, transform .15s;
 }
-.siteLink:hover { color: var(--accent); text-decoration: underline; }
+.siteLink:hover {
+  background: var(--accent);
+  color: white;
+  transform: translateY(-1px);
+}

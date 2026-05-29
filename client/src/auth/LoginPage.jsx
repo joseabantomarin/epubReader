@@ -82,7 +82,7 @@ export default function LoginPage() {
       </aside>
 
       <a className={styles.siteLink} href="https://openlinks.app" target="_blank" rel="noopener noreferrer">
-        openlinks.app
+        Conoce más en openlinks.app <span aria-hidden>↗</span>
       </a>
     </main>
   );
