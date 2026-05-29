@@ -113,9 +113,9 @@
   .navPrev { left: 0; }
   .navNext { right: 0; }
   .navCenter {
-    left: 50%;
-    transform: translateX(-50%);
-    width: 80px;
+    left: 120px;
+    right: 120px;
+    width: auto;
   }
 }
 @media (min-width: 640px) {
