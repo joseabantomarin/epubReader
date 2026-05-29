@@ -1,11 +1,11 @@
 .page {
   min-height: 100dvh;
-  padding: 16px;
+  padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
   max-width: 1280px;
   margin: 0 auto;
 }
 @media (min-width: 640px) {
-  .page { padding: 24px; }
+  .page { padding: max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left)); }
 }
 
 .header {

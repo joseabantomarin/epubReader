@@ -1,4 +1,6 @@
+import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { Capacitor } from '@capacitor/core';
 import { AuthProvider } from './auth/AuthContext.jsx';
 import { ProtectedRoute } from './auth/ProtectedRoute.jsx';
 import LoginPage from './auth/LoginPage.jsx';
@@ -8,6 +10,15 @@ import { useNativeBack } from './lib/useNativeBack.js';
 
 function Routed() {
   useNativeBack();
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    // Push the WebView below the system status bar so content doesn't get
+    // hidden under the carrier/clock icons.
+    import('@capacitor/status-bar').then(({ StatusBar }) => {
+      StatusBar.setOverlaysWebView({ overlay: false }).catch(() => {});
+      StatusBar.setBackgroundColor({ color: '#102060' }).catch(() => {});
+    });
+  }, []);
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />

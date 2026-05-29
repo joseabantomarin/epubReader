@@ -8,7 +8,7 @@
 }
 .header {
   display: flex; align-items: center; gap: 12px;
-  padding: 8px 12px;
+  padding: max(8px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) 8px max(12px, env(safe-area-inset-left));
   border-bottom: 1px solid var(--border);
   background: var(--card);
 }
@@ -38,7 +38,7 @@
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
   gap: 12px;
-  padding: 6px 14px;
+  padding: 6px max(14px, env(safe-area-inset-right)) max(6px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
   border-top: 1px solid var(--border);
   background: var(--card);
   font-size: 12px; color: var(--muted);
