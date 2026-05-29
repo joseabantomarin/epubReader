@@ -127,13 +127,10 @@ export default function ReaderPage() {
 
         setLoading(false);
 
-        // Save only on user-initiated navigations.
+        // Save on any relocate after a short grace period (lets the initial
+        // restore complete first). Covers side buttons, keyboard, swipe and
+        // TOC jumps — all of them go through the relocate event.
         let savingEnabled = false;
-        let pendingUserNavs = 0;
-        const origNext = view.next.bind(view);
-        const origPrev = view.prev.bind(view);
-        view.next = () => { if (savingEnabled) pendingUserNavs++; return origNext(); };
-        view.prev = () => { if (savingEnabled) pendingUserNavs++; return origPrev(); };
         setTimeout(() => { savingEnabled = true; }, 500);
 
         // Fallback lang on each section's document so hyphens: auto can work
@@ -164,8 +161,8 @@ export default function ReaderPage() {
           if (typeof label === 'string') setChapter(label.trim());
 
           if (!savingEnabled) return;
-          if (pendingUserNavs <= 0) return;
-          pendingUserNavs--;
+          // Ignore non-positional relocates (text selection bookkeeping).
+          if (e.detail?.reason === 'selection') return;
 
           // Save a "mid-page" fraction so restoring via goToFraction lands
           // squarely on the page the user was viewing. foliate's raw fraction
