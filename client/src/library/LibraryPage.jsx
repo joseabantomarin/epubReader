@@ -23,19 +23,32 @@ export default function LibraryPage() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [isFullscreen, toggleFullscreen] = useFullscreen();
 
-  const reload = useCallback(async () => {
-    setLoading(true);
+  const reload = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) setLoading(true);
     try {
       setBooks(await api.listBooks());
       setError(null);
     } catch (e) {
-      setError(e.message);
+      if (!silent) setError(e.message);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
   useEffect(() => { reload(); }, [reload]);
+
+  // Silently refresh when the tab regains focus so cover percentages
+  // catch up with anything saved by the reader via keepalive.
+  useEffect(() => {
+    const refresh = () => reload({ silent: true });
+    const onVisible = () => { if (document.visibilityState === 'visible') refresh(); };
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [reload]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
