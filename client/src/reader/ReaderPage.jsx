@@ -238,29 +238,6 @@ export default function ReaderPage() {
   }, [bookId]);
 
   const [selectionMode, setSelectionMode] = useState(false);
-  const doubleTapRef = useRef({ count: 0, timer: null, x: 0, y: 0 });
-
-  // Double-tap in the central reading area toggles selection mode. We require
-  // the two taps to land within 50px and 350ms of each other so it doesn't
-  // fire while the user is just tapping words to mark them.
-  const onViewportClick = (e) => {
-    if (e.target.closest && e.target.closest('button')) return;
-    const tap = doubleTapRef.current;
-    const x = e.clientX, y = e.clientY;
-    if (tap.count > 0) {
-      const dx = x - tap.x, dy = y - tap.y;
-      if (Math.hypot(dx, dy) < 50) {
-        clearTimeout(tap.timer);
-        tap.count = 0;
-        setSelectionMode((v) => !v);
-        return;
-      }
-    }
-    tap.count = 1;
-    tap.x = x; tap.y = y;
-    clearTimeout(tap.timer);
-    tap.timer = setTimeout(() => { tap.count = 0; }, 350);
-  };
 
   const goToChapter = (href) => {
     if (!href) return;
@@ -302,12 +279,15 @@ export default function ReaderPage() {
         </button>
         <FullscreenButton className={styles.back} isFullscreen={isFullscreen} onToggle={toggleFullscreen} hint="F" />
       </header>
-      <div className={styles.viewport} ref={containerRef} onClick={onViewportClick}>
+      <div className={styles.viewport} ref={containerRef}>
         {loading && <div className={styles.loading}>Cargando libro…</div>}
         {error && <div className={styles.loading} style={{ color: '#b00020' }}>{error}</div>}
         <button className={`${styles.navBtn} ${styles.navPrev} ${selectionMode ? styles.navPassthrough : ''}`}
           aria-label={leftSideAdvances ? 'Siguiente' : 'Anterior'}
           onClick={onLeftSide}>‹</button>
+        <button className={`${styles.navBtn} ${styles.navCenter} ${selectionMode ? styles.navPassthrough : ''}`}
+          aria-label={selectionMode ? 'Salir del modo selección' : 'Activar selección de texto'}
+          onClick={() => setSelectionMode((v) => !v)} />
         <button className={`${styles.navBtn} ${styles.navNext} ${selectionMode ? styles.navPassthrough : ''}`}
           aria-label={leftSideAdvances ? 'Anterior' : 'Siguiente'}
           onClick={onRightSide}>›</button>

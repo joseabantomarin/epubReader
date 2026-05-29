@@ -118,6 +118,14 @@
   .navBtn:hover { background: transparent; color: transparent; }
   .navPrev { left: 0; }
   .navNext { right: 0; }
+  .navCenter {
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80px;
+  }
+}
+@media (min-width: 640px) {
+  .navCenter { display: none; }
 }
 
 .loading {
