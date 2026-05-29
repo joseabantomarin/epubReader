@@ -25,6 +25,7 @@ export default function ReaderPage() {
   const containerRef = useRef(null);
   const viewRef = useRef(null);
   const lastSavedCfiRef = useRef(null);
+  const latestPosRef = useRef(null);
   const [pct, setPct] = useState(0);
   const [page, setPage] = useState(null);
   const [pageCount, setPageCount] = useState(null);
@@ -171,11 +172,30 @@ export default function ReaderPage() {
             ? (loc.current + 0.5) / loc.total
             : fraction;
 
-          if (cfi && cfi !== lastSavedCfiRef.current) {
-            lastSavedCfiRef.current = cfi;
-            api.putProgress(bookId, cfi, saveFraction).catch(() => {});
+          if (cfi) {
+            latestPosRef.current = { cfi, fraction: saveFraction };
+            if (cfi !== lastSavedCfiRef.current) {
+              lastSavedCfiRef.current = cfi;
+              api.putProgress(bookId, cfi, saveFraction).catch(() => {});
+            }
           }
         });
+
+        // Flush the latest position on tab hide / page unload so navigating
+        // back to the library — or closing the tab — never loses progress.
+        const flush = () => {
+          const pos = latestPosRef.current;
+          if (!pos) return;
+          api.putProgressKeepalive(bookId, pos.cfi, pos.fraction);
+        };
+        const onVisibility = () => { if (document.visibilityState === 'hidden') flush(); };
+        document.addEventListener('visibilitychange', onVisibility);
+        window.addEventListener('pagehide', flush);
+        view.__flush = flush;
+        view.__detachFlush = () => {
+          document.removeEventListener('visibilitychange', onVisibility);
+          window.removeEventListener('pagehide', flush);
+        };
 
         // Keyboard navigation on the parent document.
         const onKey = (e) => {
@@ -203,6 +223,8 @@ export default function ReaderPage() {
       disposed = true;
       const v = viewRef.current;
       if (v) {
+        try { v.__flush?.(); } catch {}
+        try { v.__detachFlush?.(); } catch {}
         try { v.__cleanup?.(); } catch {}
         try { v.close?.(); } catch {}
         try { v.remove?.(); } catch {}
@@ -217,10 +239,18 @@ export default function ReaderPage() {
     setTocOpen(false);
   };
 
+  const goBack = async () => {
+    const pos = latestPosRef.current;
+    if (pos) {
+      try { await api.putProgress(bookId, pos.cfi, pos.fraction); } catch {}
+    }
+    navigate('/');
+  };
+
   return (
     <main className={styles.page}>
       <header className={styles.header}>
-        <button className={styles.back} onClick={() => navigate('/')} aria-label="Volver">
+        <button className={styles.back} onClick={goBack} aria-label="Volver">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.75" strokeLinecap="round" strokeLinejoin="round">
             <path d="M19 12H5M12 19l-7-7 7-7"/>
           </svg>

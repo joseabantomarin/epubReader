@@ -63,6 +63,19 @@ export const api = {
       method: 'PUT',
       body: totalPages != null ? { cfi, percentage, totalPages } : { cfi, percentage },
     }),
+  // Fire-and-forget save that survives page unload / tab hide on mobile.
+  putProgressKeepalive: (bookId, cfi, percentage) => {
+    const token = getToken();
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers.Authorization = `Bearer ${token}`;
+    try {
+      fetch(`${BASE}/api/books/${bookId}/progress`, {
+        method: 'PUT', headers,
+        body: JSON.stringify({ cfi, percentage }),
+        keepalive: true,
+      });
+    } catch {}
+  },
 };
 
 export function bookFileUrl(bookId) {
