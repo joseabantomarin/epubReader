@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS books (
   cover_path    TEXT,
   file_path     TEXT    NOT NULL,
   file_size     INTEGER,
+  format        TEXT    NOT NULL DEFAULT 'epub',
   uploaded_at   TEXT    DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_books_user ON books(user_id);
@@ -48,6 +49,10 @@ export function openDb(filePath) {
   // Migration: add total_pages to pre-existing databases.
   if (!hasColumn(db, 'reading_progress', 'total_pages')) {
     db.exec('ALTER TABLE reading_progress ADD COLUMN total_pages INTEGER');
+  }
+  // Migration: add format column to pre-existing books.
+  if (!hasColumn(db, 'books', 'format')) {
+    db.exec("ALTER TABLE books ADD COLUMN format TEXT NOT NULL DEFAULT 'epub'");
   }
   return db;
 }

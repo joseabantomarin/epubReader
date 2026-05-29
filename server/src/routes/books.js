@@ -7,16 +7,31 @@ import { parseEpub } from '../epub/parser.js';
 import { bookPath, coverPath, ensureUserDir, removeBookFiles } from '../storage.js';
 import { config } from '../config.js';
 
-const MAGIC = Buffer.from([0x50, 0x4b, 0x03, 0x04]); // "PK\x03\x04"
+const ZIP_MAGIC = Buffer.from([0x50, 0x4b, 0x03, 0x04]); // "PK\x03\x04"
+const PDF_MAGIC = Buffer.from([0x25, 0x50, 0x44, 0x46, 0x2d]); // "%PDF-"
 
-function isZip(filePath) {
+function readMagic(filePath, n) {
+  const fd = fs.openSync(filePath, 'r');
+  const buf = Buffer.alloc(n);
+  try { fs.readSync(fd, buf, 0, n, 0); } finally { fs.closeSync(fd); }
+  return buf;
+}
+
+function detectFormat(filePath, name = '') {
+  const lower = name.toLowerCase();
   try {
-    const fd = fs.openSync(filePath, 'r');
-    const buf = Buffer.alloc(4);
-    fs.readSync(fd, buf, 0, 4, 0);
-    fs.closeSync(fd);
-    return buf.equals(MAGIC);
-  } catch { return false; }
+    const head = readMagic(filePath, 5);
+    if (head.subarray(0, 4).equals(ZIP_MAGIC) && lower.endsWith('.epub')) return 'epub';
+    if (head.equals(PDF_MAGIC) && lower.endsWith('.pdf')) return 'pdf';
+  } catch {}
+  return null;
+}
+
+const COVER_EXTS = new Set(['jpg', 'png', 'gif', 'webp']);
+function normalizeCoverExt(ext) {
+  const e = String(ext || '').toLowerCase();
+  if (e === 'jpeg') return 'jpg';
+  return COVER_EXTS.has(e) ? e : 'jpg';
 }
 
 export function createBooksRouter(db, dataDir) {
@@ -32,7 +47,7 @@ export function createBooksRouter(db, dataDir) {
   r.get('/', (req, res) => {
     const userId = req.user.sub;
     const rows = db.prepare(`
-      SELECT b.id, b.title, b.author, b.cover_path, b.uploaded_at,
+      SELECT b.id, b.title, b.author, b.cover_path, b.uploaded_at, b.format,
              COALESCE(p.percentage, 0) AS percentage,
              p.last_read_at AS last_read_at
         FROM books b
@@ -44,58 +59,86 @@ export function createBooksRouter(db, dataDir) {
       id: row.id,
       title: row.title,
       author: row.author,
+      format: row.format,
       coverUrl: row.cover_path ? `/api/books/${row.id}/cover` : null,
       percentage: row.percentage,
       lastReadAt: row.last_read_at,
     })));
   });
 
-  r.post('/', upload.single('file'), async (req, res) => {
-    if (!req.file) return res.status(400).json({ error: 'missing_file' });
-    const tmpPath = req.file.path;
-    const originalName = req.file.originalname || 'book.epub';
+  const uploadFields = upload.fields([
+    { name: 'file', maxCount: 1 },
+    { name: 'cover', maxCount: 1 },
+  ]);
 
-    const cleanup = () => { try { fs.unlinkSync(tmpPath); } catch {} };
+  r.post('/', uploadFields, async (req, res) => {
+    const fileEntry = req.files?.file?.[0];
+    const coverEntry = req.files?.cover?.[0];
+    if (!fileEntry) return res.status(400).json({ error: 'missing_file' });
 
-    if (!originalName.toLowerCase().endsWith('.epub') || !isZip(tmpPath)) {
+    const tmpPath = fileEntry.path;
+    const tmpCoverPath = coverEntry?.path;
+    const originalName = fileEntry.originalname || 'book';
+    const cleanup = () => {
+      try { fs.unlinkSync(tmpPath); } catch {}
+      if (tmpCoverPath) try { fs.unlinkSync(tmpCoverPath); } catch {}
+    };
+
+    const format = detectFormat(tmpPath, originalName);
+    if (!format) {
       cleanup();
-      return res.status(400).json({ error: 'not_an_epub' });
+      return res.status(400).json({ error: 'unsupported_format' });
     }
 
-    let meta = { title: null, author: null, cover: null };
-    try { meta = parseEpub(tmpPath); } catch { /* keep nulls */ }
+    // EPUB: parse server-side. PDF: trust client-provided title/author/cover.
+    let title = null, author = null, cover = null;
+    if (format === 'epub') {
+      try {
+        const meta = parseEpub(tmpPath);
+        title = meta.title; author = meta.author;
+        if (meta.cover) cover = { data: meta.cover.data, ext: meta.cover.ext };
+      } catch { /* keep nulls */ }
+    } else {
+      title = (req.body.title || '').trim() || null;
+      author = (req.body.author || '').trim() || null;
+      if (coverEntry) {
+        const ext = (coverEntry.mimetype || '').split('/')[1];
+        cover = { path: tmpCoverPath, ext };
+      }
+    }
 
-    const title = meta.title || originalName.replace(/\.epub$/i, '');
+    const fallbackName = originalName.replace(/\.(epub|pdf)$/i, '');
+    const finalTitle = title || fallbackName;
     const stat = fs.statSync(tmpPath);
-
     const userId = req.user.sub;
     ensureUserDir(dataDir, userId);
 
     const info = db.prepare(`
-      INSERT INTO books (user_id, title, author, cover_path, file_path, file_size)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(userId, title, meta.author, null, 'pending', stat.size);
+      INSERT INTO books (user_id, title, author, cover_path, file_path, file_size, format)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(userId, finalTitle, author, null, 'pending', stat.size, format);
     const bookId = info.lastInsertRowid;
+
     try {
-      const finalEpub = bookPath(dataDir, req.user.sub, bookId);
-      fs.renameSync(tmpPath, finalEpub);
+      const finalBook = bookPath(dataDir, userId, bookId, format);
+      fs.renameSync(tmpPath, finalBook);
 
       let coverRel = null;
-      if (meta.cover) {
-        const RAW_EXT = (meta.cover.ext === 'jpeg' ? 'jpg' : meta.cover.ext) || 'jpg';
-        const ALLOWED = new Set(['jpg', 'png', 'gif', 'webp']);
-        const ext = ALLOWED.has(RAW_EXT.toLowerCase()) ? RAW_EXT.toLowerCase() : 'jpg';
-        const finalCover = coverPath(dataDir, req.user.sub, bookId, ext);
-        fs.writeFileSync(finalCover, meta.cover.data);
+      if (cover) {
+        const ext = normalizeCoverExt(cover.ext);
+        const finalCover = coverPath(dataDir, userId, bookId, ext);
+        if (cover.data) fs.writeFileSync(finalCover, cover.data);
+        else if (cover.path) fs.renameSync(cover.path, finalCover);
         coverRel = path.relative(dataDir, finalCover);
       }
       db.prepare('UPDATE books SET file_path = ?, cover_path = ? WHERE id = ?')
-        .run(path.relative(dataDir, finalEpub), coverRel, bookId);
+        .run(path.relative(dataDir, finalBook), coverRel, bookId);
 
       res.json({
         id: bookId,
-        title,
-        author: meta.author,
+        title: finalTitle,
+        author,
+        format,
         coverUrl: coverRel ? `/api/books/${bookId}/cover` : null,
         percentage: 0,
         lastReadAt: null,
@@ -140,8 +183,10 @@ export function createBooksRouter(db, dataDir) {
   r.get('/:id/file', (req, res) => {
     const book = getOwnedBook(req, res);
     if (!book) return;
-    const file = bookPath(dataDir, req.user.sub, book.id);
-    res.type('application/epub+zip').sendFile(file);
+    const format = book.format || 'epub';
+    const file = bookPath(dataDir, req.user.sub, book.id, format);
+    const mime = format === 'pdf' ? 'application/pdf' : 'application/epub+zip';
+    res.type(mime).sendFile(file);
   });
 
   r.get('/:id/cover', (req, res) => {

@@ -2,6 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styles from './library.module.css';
 import { api } from '../lib/api.js';
+import { isPdfFile, extractPdfMeta } from '../lib/pdfMeta.js';
+import { useFullscreen } from '../lib/useFullscreen.js';
+import FullscreenButton from '../lib/FullscreenButton.jsx';
 import { useAuth } from '../auth/AuthContext.jsx';
 import Toolbar from './Toolbar.jsx';
 import BookCard from './BookCard.jsx';
@@ -18,6 +21,7 @@ export default function LibraryPage() {
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState(() => new Set());
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [isFullscreen, toggleFullscreen] = useFullscreen();
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -45,7 +49,16 @@ export default function LibraryPage() {
   const handleAddFile = async (file) => {
     setUploading(true);
     try {
-      const created = await api.uploadBook(file);
+      let extras = {};
+      if (await isPdfFile(file)) {
+        try {
+          const meta = await extractPdfMeta(file);
+          extras = { title: meta.title, author: meta.author, cover: meta.cover };
+        } catch (err) {
+          console.warn('[pdf] metadata extraction failed', err);
+        }
+      }
+      const created = await api.uploadBook(file, extras);
       setBooks((prev) => [created, ...prev]);
     } catch (e) {
       alert('No se pudo subir el libro: ' + (e.body?.error || e.message));
@@ -86,8 +99,12 @@ export default function LibraryPage() {
   return (
     <main className={styles.page}>
       <header className={styles.header}>
-        <h1 className={styles.title}>epubReader</h1>
+        <div className={styles.brand}>
+          <img src="/favicon.svg" alt="" className={styles.logo} width="32" height="32" />
+          <h1 className={styles.title}>MisLibros</h1>
+        </div>
         <div className={styles.userBox}>
+          <FullscreenButton className={styles.iconBtn} isFullscreen={isFullscreen} onToggle={toggleFullscreen} />
           <button
             className={styles.iconBtn}
             onClick={() => setSettingsOpen(true)}

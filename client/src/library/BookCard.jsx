@@ -27,6 +27,11 @@ export default function BookCard({ book, selectionMode, selected, onActivate }) 
             {book.author && <span>{book.author}</span>}
           </div>
         )}
+        {book.format && (
+          <span className={`${styles.formatBadge} ${book.format === 'pdf' ? styles.badgePdf : styles.badgeEpub}`}>
+            {book.format.toUpperCase()}
+          </span>
+        )}
         {selectionMode && (
           <div className={styles.checkbox} aria-hidden>{selected ? '✓' : ''}</div>
         )}

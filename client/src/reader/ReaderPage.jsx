@@ -4,6 +4,8 @@ import styles from './reader.module.css';
 import { api, bookFileUrl, getToken } from '../lib/api.js';
 import { percent } from '../lib/format.js';
 import { loadSettings, FONT_FAMILIES, resolveTheme } from '../lib/readerSettings.js';
+import { useFullscreen } from '../lib/useFullscreen.js';
+import FullscreenButton from '../lib/FullscreenButton.jsx';
 
 // foliate-js is loaded as a static asset from /public; defining 'foliate-view'
 // as a custom element. We dynamically import it once per session. The URL is
@@ -27,8 +29,13 @@ export default function ReaderPage() {
   const [page, setPage] = useState(null);
   const [pageCount, setPageCount] = useState(null);
   const [title, setTitle] = useState('');
+  const [author, setAuthor] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [toc, setToc] = useState([]);
+  const [tocOpen, setTocOpen] = useState(false);
+  const [chapter, setChapter] = useState('');
+  const [isFullscreen, toggleFullscreen] = useFullscreen();
 
   useEffect(() => {
     let disposed = false;
@@ -90,13 +97,23 @@ export default function ReaderPage() {
         }
 
         if (view.book?.metadata?.title) setTitle(view.book.metadata.title);
+        const rawAuthor = view.book?.metadata?.author;
+        if (rawAuthor) {
+          const a = Array.isArray(rawAuthor) ? rawAuthor : [rawAuthor];
+          const names = a.map(x => typeof x === 'string' ? x : (x?.name || '')).filter(Boolean);
+          if (names.length) setAuthor(names.join(', '));
+        }
+        if (Array.isArray(view.book?.toc)) setToc(view.book.toc);
 
-        // Restore position. Prefer the saved cfi; fall back to the saved fraction.
-        if (progress?.cfi) {
-          try { await view.goTo(progress.cfi); }
-          catch { if (progress.percentage) await view.goToFraction(progress.percentage); }
-        } else if (progress?.percentage) {
-          await view.goToFraction(progress.percentage);
+        // Restore position. Prefer fraction over cfi: foliate-js's relocate cfi
+        // points at the first visible element, which may start on the previous
+        // spread when a paragraph wraps across pages — landing us one page back.
+        // Fraction lands on the spread that contains the saved position.
+        if (progress?.percentage != null) {
+          try { await view.goToFraction(progress.percentage); }
+          catch { if (progress.cfi) await view.goTo(progress.cfi); }
+        } else if (progress?.cfi) {
+          await view.goTo(progress.cfi);
         }
 
         setLoading(false);
@@ -122,14 +139,23 @@ export default function ReaderPage() {
             setPage(loc.current + 1);
             setPageCount(loc.total);
           }
+          const label = e.detail?.tocItem?.label;
+          if (typeof label === 'string') setChapter(label.trim());
 
           if (!savingEnabled) return;
           if (pendingUserNavs <= 0) return;
           pendingUserNavs--;
 
+          // Save a "mid-page" fraction so restoring via goToFraction lands
+          // squarely on the page the user was viewing. foliate's raw fraction
+          // sits at the page boundary and goToFraction can round to the next.
+          const saveFraction = (loc && typeof loc.current === 'number' && loc.total)
+            ? (loc.current + 0.5) / loc.total
+            : fraction;
+
           if (cfi && cfi !== lastSavedCfiRef.current) {
             lastSavedCfiRef.current = cfi;
-            api.putProgress(bookId, cfi, fraction).catch(() => {});
+            api.putProgress(bookId, cfi, saveFraction).catch(() => {});
           }
         });
 
@@ -137,6 +163,10 @@ export default function ReaderPage() {
         const onKey = (e) => {
           if (e.key === 'ArrowLeft') view.prev();
           else if (e.key === 'ArrowRight') view.next();
+          else if (e.key === 'f' || e.key === 'F') {
+            if (document.fullscreenElement) document.exitFullscreen?.();
+            else document.documentElement.requestFullscreen?.().catch(() => {});
+          }
         };
         document.addEventListener('keydown', onKey);
         view.__cleanup = () => {
@@ -163,14 +193,29 @@ export default function ReaderPage() {
     };
   }, [bookId]);
 
+  const goToChapter = (href) => {
+    if (!href) return;
+    try { viewRef.current?.goTo(href); } catch {}
+    setTocOpen(false);
+  };
+
   return (
     <main className={styles.page}>
       <header className={styles.header}>
-        <button className={styles.back} onClick={() => navigate('/')} aria-label="Volver">←</button>
-        <h1 className={styles.title}>{title}</h1>
-        <span className={styles.pct}>
-          {pageCount && page ? `${page} / ${pageCount} (${percent(pct)})` : percent(pct)}
-        </span>
+        <button className={styles.back} onClick={() => navigate('/')} aria-label="Volver">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.75" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M19 12H5M12 19l-7-7 7-7"/>
+          </svg>
+        </button>
+        <div className={styles.titleBox}>
+          <h1 className={styles.title}>{title}</h1>
+          {author && <p className={styles.author}>{author}</p>}
+        </div>
+        {toc.length > 0 && (
+          <button className={styles.back} onClick={() => setTocOpen(true)}
+            aria-label="Índice de capítulos" title="Índice de capítulos">☰</button>
+        )}
+        <FullscreenButton className={styles.back} isFullscreen={isFullscreen} onToggle={toggleFullscreen} hint="F" />
       </header>
       <div className={styles.viewport} ref={containerRef}>
         {loading && <div className={styles.loading}>Cargando libro…</div>}
@@ -180,6 +225,44 @@ export default function ReaderPage() {
         <button className={`${styles.navBtn} ${styles.navNext}`} aria-label="Siguiente"
           onClick={() => viewRef.current?.next()}>›</button>
       </div>
+      <footer className={styles.footer}>
+        <span className={styles.footerPages}>
+          {pageCount && page ? `${page} / ${pageCount}` : '—'}
+        </span>
+        <span className={styles.footerChapter}>{chapter}</span>
+        <span className={styles.footerPct}>{percent(pct)}</span>
+      </footer>
+      {tocOpen && (
+        <>
+          <div className={styles.tocBackdrop} onClick={() => setTocOpen(false)} />
+          <aside className={styles.tocPanel} aria-label="Índice">
+            <div className={styles.tocHeader}>
+              <h2 className={styles.tocTitle}>Capítulos</h2>
+              <button className={styles.back} onClick={() => setTocOpen(false)} aria-label="Cerrar">✕</button>
+            </div>
+            <nav className={styles.tocList}>
+              <TocList items={toc} onPick={goToChapter} />
+            </nav>
+          </aside>
+        </>
+      )}
     </main>
+  );
+}
+
+function TocList({ items, onPick, depth = 0 }) {
+  return (
+    <ul className={styles.tocUl} style={{ paddingInlineStart: depth === 0 ? 0 : 14 }}>
+      {items.map((it, i) => (
+        <li key={i}>
+          <button className={styles.tocItem} onClick={() => onPick(it.href)} disabled={!it.href}>
+            {it.label?.trim() || 'Sin título'}
+          </button>
+          {Array.isArray(it.subitems) && it.subitems.length > 0 && (
+            <TocList items={it.subitems} onPick={onPick} depth={depth + 1} />
+          )}
+        </li>
+      ))}
+    </ul>
   );
 }

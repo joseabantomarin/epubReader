@@ -27,7 +27,7 @@ export default function Toolbar({
             </button>
             <button className={styles.btn} onClick={onEnterSelection}>☑ Seleccionar</button>
             <input
-              ref={fileRef} type="file" accept=".epub"
+              ref={fileRef} type="file" accept=".epub,.pdf"
               style={{ display: 'none' }}
               onChange={(e) => {
                 const f = e.target.files?.[0];

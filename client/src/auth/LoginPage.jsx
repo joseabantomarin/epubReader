@@ -54,7 +54,8 @@ export default function LoginPage() {
   return (
     <main className={styles.page}>
       <div className={styles.card}>
-        <h1 className={styles.title}>epubReader</h1>
+        <img src="/favicon.svg" alt="" width="72" height="72" style={{ display: 'block', margin: '0 auto 12px', borderRadius: 14 }} />
+        <h1 className={styles.title}>MisLibros</h1>
         <p className={styles.sub}>Tus libros, sincronizados donde sea.</p>
         <div ref={btnRef} className={styles.btnSlot} />
         {error && <p className={styles.error}>{error}</p>}

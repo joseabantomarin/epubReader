@@ -48,9 +48,12 @@ async function call(path, { method = 'GET', body, formData, headers = {} } = {})
 export const api = {
   loginGoogle: (credential) => call('/api/auth/google', { method: 'POST', body: { credential } }),
   listBooks: () => call('/api/books'),
-  uploadBook: (file) => {
+  uploadBook: (file, extras = {}) => {
     const fd = new FormData();
     fd.append('file', file);
+    if (extras.title) fd.append('title', extras.title);
+    if (extras.author) fd.append('author', extras.author);
+    if (extras.cover) fd.append('cover', extras.cover, 'cover.jpg');
     return call('/api/books', { method: 'POST', formData: fd });
   },
   deleteBooks: (ids) => call('/api/books', { method: 'DELETE', body: { ids } }),

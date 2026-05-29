@@ -1,8 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-export function bookPath(dataDir, userId, bookId) {
-  return path.join(dataDir, 'books', String(userId), `${bookId}.epub`);
+export function bookPath(dataDir, userId, bookId, format = 'epub') {
+  return path.join(dataDir, 'books', String(userId), `${bookId}.${format}`);
 }
 
 export function coverPath(dataDir, userId, bookId, ext) {
@@ -19,7 +19,7 @@ export function removeBookFiles(dataDir, userId, bookId) {
   const dir = path.join(dataDir, 'books', String(userId));
   if (!fs.existsSync(dir)) return;
   for (const name of fs.readdirSync(dir)) {
-    if (name === `${bookId}.epub` || name.startsWith(`${bookId}.`)) {
+    if (name.startsWith(`${bookId}.`)) {
       fs.unlinkSync(path.join(dir, name));
     }
   }
