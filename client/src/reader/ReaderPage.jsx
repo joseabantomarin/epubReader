@@ -291,12 +291,12 @@ export default function ReaderPage() {
         <button className={`${styles.navBtn} ${styles.navNext} ${selectionMode ? styles.navPassthrough : ''}`}
           aria-label={leftSideAdvances ? 'Anterior' : 'Siguiente'}
           onClick={onRightSide}>›</button>
-        {selectionMode && (
-          <div className={styles.selectionHint} aria-hidden>
-            Mantén presionado para seleccionar texto. Toca el ícono para salir.
-          </div>
-        )}
       </div>
+      {selectionMode && (
+        <div className={styles.selectionBanner} role="status">
+          Mantén presionado para seleccionar texto. Toca el ícono para salir.
+        </div>
+      )}
       <footer className={styles.footer}>
         <span className={styles.footerPages}>
           {pageCount && page ? `${page} / ${pageCount}` : '—'}
