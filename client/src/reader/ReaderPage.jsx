@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import styles from './reader.module.css';
 import { api, bookFileUrl, getToken } from '../lib/api.js';
+import { getBookFile, putBookFile } from '../lib/offlineCache.js';
 import { percent } from '../lib/format.js';
 import { loadSettings, FONT_FAMILIES, resolveTheme } from '../lib/readerSettings.js';
 import { useFullscreen } from '../lib/useFullscreen.js';
@@ -50,12 +51,18 @@ export default function ReaderPage() {
         await loadFoliate();
         if (disposed) return;
 
-        const [progress, fileRes] = await Promise.all([
-          api.getProgress(bookId),
-          fetch(bookFileUrl(bookId), { headers: { Authorization: `Bearer ${getToken()}` } }),
-        ]);
-        if (!fileRes.ok) throw new Error('No se pudo cargar el libro');
-        const buf = await fileRes.arrayBuffer();
+        // Try the local copy first (works offline, instant). If absent, fetch
+        // from the server and store the buffer for next time.
+        let buf = await getBookFile(bookId);
+        const progress = await api.getProgress(bookId).catch(() => null);
+        if (!buf) {
+          const fileRes = await fetch(bookFileUrl(bookId), {
+            headers: { Authorization: `Bearer ${getToken()}` },
+          });
+          if (!fileRes.ok) throw new Error('No se pudo cargar el libro');
+          buf = await fileRes.arrayBuffer();
+          putBookFile(bookId, buf).catch(() => {});
+        }
         if (disposed) return;
 
         const file = new File([buf], 'book.epub', { type: 'application/epub+zip' });

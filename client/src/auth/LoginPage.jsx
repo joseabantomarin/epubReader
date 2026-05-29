@@ -67,12 +67,13 @@ export default function LoginPage() {
     try {
       const user = await GoogleAuth.signIn();
       const credential = user.authentication?.idToken;
-      if (!credential) throw new Error('no id_token returned');
+      if (!credential) throw new Error('plugin returned no idToken');
       await loginWithGoogle(credential);
       navigate('/', { replace: true });
     } catch (e) {
       console.error('[native sign-in]', e);
-      setError('No se pudo iniciar sesión. Inténtalo de nuevo.');
+      const detail = e?.code != null ? `code ${e.code}` : (e?.message || String(e));
+      setError(`Falló el login: ${detail}`);
     } finally {
       setSigningIn(false);
     }

@@ -32,6 +32,9 @@ export default function BookCard({ book, selectionMode, selected, onActivate }) 
             {book.format.toUpperCase()}
           </span>
         )}
+        {book.isOffline && (
+          <span className={styles.offlineDot} title="Disponible offline" aria-label="Disponible offline" />
+        )}
         {selectionMode && (
           <div className={styles.checkbox} aria-hidden>{selected ? '✓' : ''}</div>
         )}

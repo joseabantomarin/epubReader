@@ -4,4 +4,5 @@
     <string name="title_activity_main">MisLibros</string>
     <string name="package_name">app.openlinks.mislibros</string>
     <string name="custom_url_scheme">app.openlinks.mislibros</string>
+    <string name="server_client_id">823603281404-rgg8sb970f86cmqo91vgi6ibh0ph8ban.apps.googleusercontent.com</string>
 </resources>

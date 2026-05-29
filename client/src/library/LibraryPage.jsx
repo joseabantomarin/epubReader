@@ -6,6 +6,8 @@ import { isPdfFile, extractPdfMeta } from '../lib/pdfMeta.js';
 import { useFullscreen } from '../lib/useFullscreen.js';
 import FullscreenButton from '../lib/FullscreenButton.jsx';
 import PitchSection from '../lib/PitchSection.jsx';
+import { listCachedBookIds } from '../lib/offlineCache.js';
+import { getCachedLibrary, saveCachedLibrary } from '../lib/offlineLibrary.js';
 import { useAuth } from '../auth/AuthContext.jsx';
 import Toolbar from './Toolbar.jsx';
 import BookCard from './BookCard.jsx';
@@ -23,14 +25,28 @@ export default function LibraryPage() {
   const [selectedIds, setSelectedIds] = useState(() => new Set());
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [isFullscreen, toggleFullscreen] = useFullscreen();
+  const [offline, setOffline] = useState(false);
 
   const reload = useCallback(async ({ silent = false } = {}) => {
     if (!silent) setLoading(true);
+    const cachedIds = await listCachedBookIds();
+    const enrich = (list) => list.map((b) => ({ ...b, isOffline: cachedIds.has(b.id) }));
     try {
-      setBooks(await api.listBooks());
+      const list = await api.listBooks();
+      setBooks(enrich(list));
+      saveCachedLibrary(list);
+      setOffline(false);
       setError(null);
     } catch (e) {
-      if (!silent) setError(e.message);
+      // Network/server down — fall back to the last known list, if any.
+      const cached = getCachedLibrary();
+      if (cached?.books?.length) {
+        setBooks(enrich(cached.books));
+        setOffline(true);
+        setError(null);
+      } else if (!silent) {
+        setError(e.message);
+      }
     } finally {
       if (!silent) setLoading(false);
     }
@@ -106,8 +122,12 @@ export default function LibraryPage() {
   };
 
   const onActivate = (book) => {
-    if (selectionMode) toggleSelect(book.id);
-    else navigate(`/read/${book.id}`);
+    if (selectionMode) { toggleSelect(book.id); return; }
+    if (offline && !book.isOffline) {
+      alert('Aún no descargaste este libro. Conéctate a internet para abrirlo.');
+      return;
+    }
+    navigate(`/read/${book.id}`);
   };
 
   return (
@@ -146,6 +166,12 @@ export default function LibraryPage() {
         onCancelSelection={cancelSelection}
         onDeleteSelected={deleteSelected}
       />
+
+      {offline && (
+        <div className={styles.offlineBanner}>
+          Modo offline — viendo libros guardados localmente
+        </div>
+      )}
 
       {error && <p className={styles.empty} style={{ color: '#b00020' }}>{error}</p>}
       {loading ? (
