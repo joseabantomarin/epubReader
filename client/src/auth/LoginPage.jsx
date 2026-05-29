@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext.jsx';
 import styles from './login.module.css';
+import PitchSection from '../lib/PitchSection.jsx';
 
 const GSI_SRC = 'https://accounts.google.com/gsi/client';
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
@@ -66,24 +67,7 @@ export default function LoginPage() {
         {error && <p className={styles.error}>{error}</p>}
       </div>
 
-      <aside className={styles.pitch}>
-        <h2 className={styles.pitchTitle}>¿Te gustó esta app?</h2>
-        <p className={styles.pitchBody}>
-          Desarrollo software a medida — webs, apps móviles, automatizaciones, IA.
-          Cuéntame tu idea y la convertimos en producto.
-        </p>
-        <a
-          className={styles.pitchCta}
-          href="mailto:joseabantomarin@gmail.com?subject=Cotización%20de%20proyecto"
-        >
-          Cotizar mi proyecto →
-        </a>
-        <p className={styles.pitchSign}>José Abanto · Desarrollador full-stack</p>
-      </aside>
-
-      <a className={styles.siteLink} href="https://openlinks.app" target="_blank" rel="noopener noreferrer">
-        Conoce más en openlinks.app <span aria-hidden>↗</span>
-      </a>
+      <PitchSection />
     </main>
   );
 }

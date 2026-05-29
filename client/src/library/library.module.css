@@ -144,3 +144,9 @@
   vertical-align: middle; margin-right: 6px;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+.divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 48px 0 32px;
+}

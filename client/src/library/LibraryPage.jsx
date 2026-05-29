@@ -5,6 +5,7 @@ import { api } from '../lib/api.js';
 import { isPdfFile, extractPdfMeta } from '../lib/pdfMeta.js';
 import { useFullscreen } from '../lib/useFullscreen.js';
 import FullscreenButton from '../lib/FullscreenButton.jsx';
+import PitchSection from '../lib/PitchSection.jsx';
 import { useAuth } from '../auth/AuthContext.jsx';
 import Toolbar from './Toolbar.jsx';
 import BookCard from './BookCard.jsx';
@@ -170,6 +171,9 @@ export default function LibraryPage() {
       )}
 
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+
+      <hr className={styles.divider} />
+      <PitchSection />
     </main>
   );
 }
