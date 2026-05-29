@@ -84,6 +84,28 @@
 }
 .navPrev { left: 8px; }
 .navNext { right: 8px; }
+.navPassthrough { pointer-events: none; opacity: 0; }
+
+.backActive {
+  background: var(--accent) !important;
+  border-color: var(--accent) !important;
+  color: white !important;
+}
+
+.selectionHint {
+  position: absolute;
+  bottom: 16px;
+  left: 50%; transform: translateX(-50%);
+  background: rgba(20, 20, 26, 0.85);
+  color: white;
+  font-size: 12px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  z-index: 12;
+  pointer-events: none;
+  text-align: center;
+  max-width: 90%;
+}
 
 @media (max-width: 639px) {
   .navBtn {
