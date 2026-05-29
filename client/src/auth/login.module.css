@@ -1,7 +1,10 @@
 .page {
   min-height: 100dvh;
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
   padding: 24px;
 }
 .card {
@@ -12,9 +15,63 @@
   box-shadow: var(--shadow);
   text-align: center;
   width: 100%;
-  max-width: 380px;
+  max-width: 420px;
 }
+.logo { display: block; margin: 0 auto 16px; border-radius: 18px; }
 .title { font-size: 32px; margin: 0 0 8px; letter-spacing: -0.5px; }
-.sub { color: var(--muted); margin: 0 0 28px; }
+.tagline {
+  color: var(--fg);
+  font-size: 15px;
+  font-weight: 500;
+  margin: 0 0 12px;
+}
+.lead {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 0 auto 24px;
+  max-width: 320px;
+}
 .btnSlot { display: flex; justify-content: center; }
 .error { color: #b00020; margin-top: 16px; font-size: 14px; }
+
+.pitch {
+  width: 100%;
+  max-width: 420px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--accent);
+  border-radius: 14px;
+  padding: 24px 28px;
+  text-align: center;
+  box-shadow: var(--shadow);
+}
+.pitchTitle {
+  font-size: 17px;
+  font-weight: 700;
+  margin: 0 0 10px;
+  letter-spacing: -0.2px;
+}
+.pitchBody {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 0 0 18px;
+}
+.pitchCta {
+  display: inline-block;
+  background: var(--accent);
+  color: white;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 14px;
+  padding: 10px 20px;
+  border-radius: 999px;
+  transition: filter .15s;
+}
+.pitchCta:hover { filter: brightness(1.08); }
+.pitchSign {
+  color: var(--muted);
+  font-size: 12px;
+  margin: 14px 0 0;
+}

@@ -54,12 +54,32 @@ export default function LoginPage() {
   return (
     <main className={styles.page}>
       <div className={styles.card}>
-        <img src="/favicon.svg" alt="" width="72" height="72" style={{ display: 'block', margin: '0 auto 12px', borderRadius: 14 }} />
+        <img src="/favicon.svg" alt="" width="96" height="96" className={styles.logo} />
         <h1 className={styles.title}>MisLibros</h1>
-        <p className={styles.sub}>Tus libros, sincronizados donde sea.</p>
+        <p className={styles.tagline}>Tu biblioteca personal en la nube.</p>
+        <p className={styles.lead}>
+          Lee EPUB y PDF desde cualquier dispositivo. Tu progreso se
+          sincroniza automáticamente — empieza un libro en tu computadora
+          y termínalo en el celular.
+        </p>
         <div ref={btnRef} className={styles.btnSlot} />
         {error && <p className={styles.error}>{error}</p>}
       </div>
+
+      <aside className={styles.pitch}>
+        <h2 className={styles.pitchTitle}>¿Te gustó esta app?</h2>
+        <p className={styles.pitchBody}>
+          Desarrollo software a medida — webs, apps móviles, automatizaciones, IA.
+          Cuéntame tu idea y la convertimos en producto.
+        </p>
+        <a
+          className={styles.pitchCta}
+          href="mailto:joseabantomarin@gmail.com?subject=Cotización%20de%20proyecto"
+        >
+          Cotizar mi proyecto →
+        </a>
+        <p className={styles.pitchSign}>José Abanto · Desarrollador full-stack</p>
+      </aside>
     </main>
   );
 }
