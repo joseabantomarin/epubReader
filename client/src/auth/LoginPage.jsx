@@ -80,6 +80,10 @@ export default function LoginPage() {
         </a>
         <p className={styles.pitchSign}>José Abanto · Desarrollador full-stack</p>
       </aside>
+
+      <a className={styles.siteLink} href="https://openlinks.app" target="_blank" rel="noopener noreferrer">
+        openlinks.app
+      </a>
     </main>
   );
 }

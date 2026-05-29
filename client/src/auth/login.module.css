@@ -75,3 +75,11 @@
   font-size: 12px;
   margin: 14px 0 0;
 }
+
+.siteLink {
+  color: var(--muted);
+  font-size: 13px;
+  text-decoration: none;
+  letter-spacing: 0.3px;
+}
+.siteLink:hover { color: var(--accent); text-decoration: underline; }
