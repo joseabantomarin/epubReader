@@ -8,6 +8,7 @@ import FullscreenButton from '../lib/FullscreenButton.jsx';
 import PitchSection from '../lib/PitchSection.jsx';
 import { listCachedBookIds } from '../lib/offlineCache.js';
 import { getCachedLibrary, saveCachedLibrary } from '../lib/offlineLibrary.js';
+import { getProgressLocal } from '../lib/offlineProgress.js';
 import { useAuth } from '../auth/AuthContext.jsx';
 import Toolbar from './Toolbar.jsx';
 import BookCard from './BookCard.jsx';
@@ -30,7 +31,18 @@ export default function LibraryPage() {
   const reload = useCallback(async ({ silent = false } = {}) => {
     if (!silent) setLoading(true);
     const cachedIds = await listCachedBookIds();
-    const enrich = (list) => list.map((b) => ({ ...b, isOffline: cachedIds.has(b.id) }));
+    const enrich = (list) => list.map((b) => {
+      const local = getProgressLocal(b.id);
+      const localAt = local?.at || 0;
+      const serverAt = b.lastReadAt ? Date.parse(b.lastReadAt) : 0;
+      const useLocal = local && localAt > serverAt;
+      return {
+        ...b,
+        percentage: useLocal ? local.percentage : b.percentage,
+        lastReadAt: useLocal ? new Date(local.at).toISOString() : b.lastReadAt,
+        isOffline: cachedIds.has(b.id),
+      };
+    });
     try {
       const list = await api.listBooks();
       setBooks(enrich(list));

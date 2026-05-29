@@ -7,9 +7,11 @@ import LoginPage from './auth/LoginPage.jsx';
 import LibraryPage from './library/LibraryPage.jsx';
 import ReaderPage from './reader/ReaderPage.jsx';
 import { useNativeBack } from './lib/useNativeBack.js';
+import { useSyncQueue } from './lib/useSyncQueue.js';
 
 function Routed() {
   useNativeBack();
+  useSyncQueue();
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
     // Push the WebView below the system status bar so content doesn't get

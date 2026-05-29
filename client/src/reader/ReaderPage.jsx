@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import styles from './reader.module.css';
 import { api, bookFileUrl, getToken } from '../lib/api.js';
 import { getBookFile, putBookFile } from '../lib/offlineCache.js';
-import { getProgressLocal, saveProgressLocal } from '../lib/offlineProgress.js';
+import { getProgressLocal, saveProgressLocal, markSynced } from '../lib/offlineProgress.js';
 import { percent } from '../lib/format.js';
 import { loadSettings, FONT_FAMILIES, resolveTheme } from '../lib/readerSettings.js';
 import { useFullscreen } from '../lib/useFullscreen.js';
@@ -190,7 +190,9 @@ export default function ReaderPage() {
             saveProgressLocal(bookId, cfi, saveFraction);
             if (cfi !== lastSavedCfiRef.current) {
               lastSavedCfiRef.current = cfi;
-              api.putProgress(bookId, cfi, saveFraction).catch(() => {});
+              api.putProgress(bookId, cfi, saveFraction)
+                .then(() => markSynced(bookId))
+                .catch(() => { /* stays unsynced; flushed by useSyncQueue */ });
             }
           }
         });
