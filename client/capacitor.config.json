@@ -1,0 +1,24 @@
+{
+  "appId": "app.openlinks.mislibros",
+  "appName": "MisLibros",
+  "webDir": "dist",
+  "plugins": {
+    "CapacitorHttp": {
+      "enabled": true
+    },
+    "GoogleAuth": {
+      "scopes": ["profile", "email"],
+      "serverClientId": "823603281404-rgg8sb970f86cmqo91vgi6ibh0ph8ban.apps.googleusercontent.com",
+      "forceCodeForRefreshToken": false
+    },
+    "SplashScreen": {
+      "launchShowDuration": 1500,
+      "backgroundColor": "#102060",
+      "showSpinner": false
+    },
+    "StatusBar": {
+      "style": "DARK",
+      "backgroundColor": "#102060"
+    }
+  }
+}

@@ -33,4 +33,18 @@
   max-width: 320px;
 }
 .btnSlot { display: flex; justify-content: center; }
+.nativeBtn {
+  display: inline-block;
+  background: white;
+  color: #1f1f1f;
+  border: 1px solid #dadce0;
+  border-radius: 999px;
+  font-weight: 500;
+  font-size: 14px;
+  padding: 10px 24px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.nativeBtn:hover { background: #f8f9fa; }
+.nativeBtn:disabled { opacity: 0.6; cursor: default; }
 .error { color: #b00020; margin-top: 16px; font-size: 14px; }

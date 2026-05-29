@@ -72,6 +72,19 @@ export function createApp(options = {}) {
   app.use('/api/books', createBooksRouter(db, dataDir));
   app.use('/api/books', createProgressRouter(db));
 
+  // Public downloads (e.g. Android APK). Outside the SPA dist so it survives
+  // client rebuilds; served in any environment.
+  const downloadsDir = path.join(dataDir, 'downloads');
+  if (fs.existsSync(downloadsDir)) {
+    app.use('/downloads', express.static(downloadsDir, {
+      setHeaders: (res, filePath) => {
+        if (filePath.endsWith('.apk')) {
+          res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+        }
+      },
+    }));
+  }
+
   if (isProd) {
     const clientDist = path.resolve(__dirname, '..', '..', 'client', 'dist');
     if (fs.existsSync(clientDist)) {

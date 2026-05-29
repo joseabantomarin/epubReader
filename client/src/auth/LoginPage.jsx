@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Capacitor } from '@capacitor/core';
+import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 import { useAuth } from './AuthContext.jsx';
 import styles from './login.module.css';
 import PitchSection from '../lib/PitchSection.jsx';
 
 const GSI_SRC = 'https://accounts.google.com/gsi/client';
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+const IS_NATIVE = Capacitor.isNativePlatform();
 
 function loadGsi() {
   return new Promise((resolve, reject) => {
@@ -29,8 +32,14 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const btnRef = useRef(null);
   const [error, setError] = useState(null);
+  const [signingIn, setSigningIn] = useState(false);
 
   useEffect(() => {
+    if (IS_NATIVE) {
+      // Native plugin reads serverClientId from capacitor.config.json
+      try { GoogleAuth.initialize(); } catch (e) { console.warn('GoogleAuth init', e); }
+      return;
+    }
     let cancelled = false;
     loadGsi().then(() => {
       if (cancelled || !btnRef.current) return;
@@ -52,6 +61,23 @@ export default function LoginPage() {
     return () => { cancelled = true; };
   }, [loginWithGoogle, navigate]);
 
+  const nativeSignIn = async () => {
+    setSigningIn(true);
+    setError(null);
+    try {
+      const user = await GoogleAuth.signIn();
+      const credential = user.authentication?.idToken;
+      if (!credential) throw new Error('no id_token returned');
+      await loginWithGoogle(credential);
+      navigate('/', { replace: true });
+    } catch (e) {
+      console.error('[native sign-in]', e);
+      setError('No se pudo iniciar sesión. Inténtalo de nuevo.');
+    } finally {
+      setSigningIn(false);
+    }
+  };
+
   return (
     <main className={styles.page}>
       <div className={styles.card}>
@@ -63,7 +89,13 @@ export default function LoginPage() {
           sincroniza automáticamente — empieza un libro en tu computadora
           y termínalo en el celular.
         </p>
-        <div ref={btnRef} className={styles.btnSlot} />
+        {IS_NATIVE ? (
+          <button className={styles.nativeBtn} onClick={nativeSignIn} disabled={signingIn}>
+            {signingIn ? 'Iniciando…' : 'Iniciar sesión con Google'}
+          </button>
+        ) : (
+          <div ref={btnRef} className={styles.btnSlot} />
+        )}
         {error && <p className={styles.error}>{error}</p>}
       </div>
 

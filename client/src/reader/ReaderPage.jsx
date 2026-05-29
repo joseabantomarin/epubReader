@@ -211,8 +211,19 @@ export default function ReaderPage() {
           }
         };
         document.addEventListener('keydown', onKey);
+
+        // Hardware volume buttons on Android (Capacitor): MainActivity hijacks
+        // KEYCODE_VOLUME_UP/DOWN and dispatches a 'hardwareVolume' CustomEvent.
+        const onVolume = (e) => {
+          const which = e.detail;
+          if (which === 'volumeUp') leftSideAdvances ? view.next() : view.prev();
+          else if (which === 'volumeDown') leftSideAdvances ? view.prev() : view.next();
+        };
+        window.addEventListener('hardwareVolume', onVolume);
+
         view.__cleanup = () => {
           document.removeEventListener('keydown', onKey);
+          window.removeEventListener('hardwareVolume', onVolume);
           window.removeEventListener('resize', applyColumnCount);
         };
       } catch (e) {
