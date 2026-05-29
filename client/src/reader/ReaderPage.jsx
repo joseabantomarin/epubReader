@@ -77,6 +77,14 @@ export default function ReaderPage() {
         const settings = loadSettings();
         const themeColors = resolveTheme(settings.theme);
         const fontFamily = FONT_FAMILIES[settings.fontFamily] || FONT_FAMILIES.system;
+        const hyphenCss = settings.hyphenation
+          ? `body, p, li, blockquote, h1, h2, h3, h4, h5, h6 {
+               hyphens: auto !important;
+               -webkit-hyphens: auto !important;
+               -ms-hyphens: auto !important;
+               text-align: justify !important;
+             }`
+          : '';
         const css = `
           @namespace epub "http://www.idpf.org/2007/ops";
           html, body { background: ${themeColors.background} !important; color: ${themeColors.color} !important; }
@@ -87,6 +95,7 @@ export default function ReaderPage() {
           }
           html { font-size: ${settings.fontSize}% !important; }
           p { margin-top: ${(0.5 * settings.lineHeight).toFixed(2)}em !important; margin-bottom: 0 !important; }
+          ${hyphenCss}
         `;
         try { view.renderer.setStyles?.(css); } catch {}
         // Fixed: no vertical margin, half of the default horizontal gap (7% → 3.5%).
@@ -126,6 +135,18 @@ export default function ReaderPage() {
         view.next = () => { if (savingEnabled) pendingUserNavs++; return origNext(); };
         view.prev = () => { if (savingEnabled) pendingUserNavs++; return origPrev(); };
         setTimeout(() => { savingEnabled = true; }, 500);
+
+        // Fallback lang on each section's document so hyphens: auto can work
+        // even when the book itself doesn't declare a language.
+        view.addEventListener('load', (e) => {
+          const doc = e.detail?.doc;
+          if (!doc?.documentElement) return;
+          if (!doc.documentElement.getAttribute('lang')) {
+            const raw = view.book?.metadata?.language;
+            const lang = (Array.isArray(raw) ? raw[0] : raw) || 'es';
+            doc.documentElement.setAttribute('lang', String(lang).split(/[-_]/)[0]);
+          }
+        });
 
         view.addEventListener('relocate', (e) => {
           const fraction = typeof e.detail?.fraction === 'number' ? e.detail.fraction : null;

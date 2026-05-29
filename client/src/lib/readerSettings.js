@@ -5,6 +5,7 @@ export const DEFAULTS = {
   fontFamily: 'system',  // 'system' | 'serif' | 'sans-serif' | 'monospace'
   theme: 'auto',         // 'auto' | 'light' | 'sepia' | 'dark'
   lineHeight: 1.3,       // 1.0–2.2
+  hyphenation: true,     // split words at line end (needs lang attr)
 };
 
 export const FONT_FAMILIES = {

@@ -90,6 +90,18 @@ export default function SettingsModal({ open, onClose }) {
             </div>
           </section>
 
+          <section className={styles.row}>
+            <label className={styles.label}>Separación de sílabas</label>
+            <div className={styles.chips}>
+              <button
+                className={`${styles.chip} ${s.hyphenation ? styles.chipActive : ''}`}
+                onClick={() => update({ hyphenation: true })}>Activada</button>
+              <button
+                className={`${styles.chip} ${!s.hyphenation ? styles.chipActive : ''}`}
+                onClick={() => update({ hyphenation: false })}>Desactivada</button>
+            </div>
+          </section>
+
           <p className={styles.hint}>Los cambios se aplican la próxima vez que abras un libro.</p>
         </div>
 
