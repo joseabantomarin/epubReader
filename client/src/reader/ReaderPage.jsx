@@ -285,9 +285,6 @@ export default function ReaderPage() {
         <button className={`${styles.navBtn} ${styles.navPrev} ${selectionMode ? styles.navPassthrough : ''}`}
           aria-label={leftSideAdvances ? 'Siguiente' : 'Anterior'}
           onClick={onLeftSide}>‹</button>
-        <button className={`${styles.navBtn} ${styles.navCenter} ${selectionMode ? styles.navPassthrough : ''}`}
-          aria-label={selectionMode ? 'Salir del modo selección' : 'Activar selección de texto'}
-          onClick={() => setSelectionMode((v) => !v)} />
         <button className={`${styles.navBtn} ${styles.navNext} ${selectionMode ? styles.navPassthrough : ''}`}
           aria-label={leftSideAdvances ? 'Anterior' : 'Siguiente'}
           onClick={onRightSide}>›</button>

@@ -112,14 +112,6 @@
   .navBtn:hover { background: transparent; color: transparent; }
   .navPrev { left: 0; }
   .navNext { right: 0; }
-  .navCenter {
-    left: 120px;
-    right: 120px;
-    width: auto;
-  }
-}
-@media (min-width: 640px) {
-  .navCenter { display: none; }
 }
 
 .loading {
