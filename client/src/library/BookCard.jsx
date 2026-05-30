@@ -3,6 +3,7 @@ import styles from './library.module.css';
 import { bookCoverUrl, sharedCoverUrl, getToken } from '../lib/api.js';
 import { getCover, putCover } from '../lib/offlineCache.js';
 import { percent, relativeTime } from '../lib/format.js';
+import StarRating from './StarRating.jsx';
 
 function hashColor(s) {
   let h = 0;
@@ -10,7 +11,7 @@ function hashColor(s) {
   return `hsl(${h % 360} 50% 45%)`;
 }
 
-export default function BookCard({ book, selectionMode, selected, onActivate, shared = false }) {
+export default function BookCard({ book, selectionMode, selected, onActivate, shared = false, onRate, onClear }) {
   const handleClick = () => onActivate(book);
   const [coverSrc, setCoverSrc] = useState(null);
 
@@ -86,6 +87,16 @@ export default function BookCard({ book, selectionMode, selected, onActivate, sh
         <span>{percent(book.percentage)}</span>
         <span>{relativeTime(book.lastReadAt)}</span>
       </div>
+      {onRate && (
+        <StarRating
+          avg={book.avgStars}
+          count={book.ratingCount}
+          myStars={book.myStars}
+          interactive
+          onRate={onRate}
+          onClear={onClear}
+        />
+      )}
     </div>
   );
 }

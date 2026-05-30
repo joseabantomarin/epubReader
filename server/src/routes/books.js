@@ -44,17 +44,38 @@ export function createBooksRouter(db, dataDir) {
   });
   fs.mkdirSync(path.join(dataDir, 'tmp'), { recursive: true });
 
+  // Rating summary for one of the user's books (same shape as /api/shared).
+  function ratingSummary(bookId, userId) {
+    const agg = db.prepare(
+      'SELECT COUNT(*) AS c, AVG(stars) AS avg FROM ratings WHERE book_id = ?'
+    ).get(bookId);
+    const mine = db.prepare(
+      'SELECT stars FROM ratings WHERE book_id = ? AND user_id = ?'
+    ).get(bookId, userId);
+    return {
+      avgStars: agg.avg != null ? Number(agg.avg) : null,
+      ratingCount: agg.c,
+      myStars: mine ? mine.stars : null,
+    };
+  }
+
   r.get('/', (req, res) => {
     const userId = req.user.sub;
     const rows = db.prepare(`
       SELECT b.id, b.title, b.author, b.cover_path, b.uploaded_at, b.format, b.shared,
              COALESCE(p.percentage, 0) AS percentage,
-             p.last_read_at AS last_read_at
+             p.last_read_at AS last_read_at,
+             COUNT(rt.stars) AS rating_count,
+             AVG(rt.stars) AS avg_stars,
+             mr.stars AS my_stars
         FROM books b
         LEFT JOIN reading_progress p ON p.book_id = b.id
+        LEFT JOIN ratings rt ON rt.book_id = b.id
+        LEFT JOIN ratings mr ON mr.book_id = b.id AND mr.user_id = ?
        WHERE b.user_id = ?
+       GROUP BY b.id
        ORDER BY COALESCE(p.last_read_at, b.uploaded_at) DESC
-    `).all(userId);
+    `).all(userId, userId);
     res.json(rows.map(row => ({
       id: row.id,
       title: row.title,
@@ -64,7 +85,35 @@ export function createBooksRouter(db, dataDir) {
       coverUrl: row.cover_path ? `/api/books/${row.id}/cover` : null,
       percentage: row.percentage,
       lastReadAt: row.last_read_at,
+      avgStars: row.avg_stars != null ? Number(row.avg_stars) : null,
+      ratingCount: row.rating_count,
+      myStars: row.my_stars != null ? row.my_stars : null,
     })));
+  });
+
+  // Rate / unrate one of your own books. Reuses the shared ratings table, so a
+  // rating set here also counts toward the public average if the book is shared.
+  r.put('/:id/rating', (req, res) => {
+    const id = Number(req.params.id);
+    const stars = req.body?.stars;
+    if (!Number.isInteger(stars) || stars < 1 || stars > 5) {
+      return res.status(400).json({ error: 'invalid_stars' });
+    }
+    const book = db.prepare('SELECT id FROM books WHERE id = ? AND user_id = ?').get(id, req.user.sub);
+    if (!book) return res.status(404).end();
+    db.prepare(`
+      INSERT INTO ratings (book_id, user_id, stars) VALUES (?, ?, ?)
+      ON CONFLICT(book_id, user_id) DO UPDATE SET stars = excluded.stars, updated_at = CURRENT_TIMESTAMP
+    `).run(book.id, req.user.sub, stars);
+    res.json(ratingSummary(book.id, req.user.sub));
+  });
+
+  r.delete('/:id/rating', (req, res) => {
+    const id = Number(req.params.id);
+    const book = db.prepare('SELECT id FROM books WHERE id = ? AND user_id = ?').get(id, req.user.sub);
+    if (!book) return res.status(404).end();
+    db.prepare('DELETE FROM ratings WHERE book_id = ? AND user_id = ?').run(book.id, req.user.sub);
+    res.json(ratingSummary(book.id, req.user.sub));
   });
 
   const uploadFields = upload.fields([

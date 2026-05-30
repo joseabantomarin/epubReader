@@ -180,6 +180,19 @@ export default function LibraryPage() {
   };
   const openShared = (book) => navigate(`/read/${book.id}?shared=1`);
 
+  const rateBook = async (id, stars) => {
+    try {
+      const result = await api.rateBook(id, stars);
+      setBooks((prev) => prev.map(b => b.id === id ? { ...b, ...result } : b));
+    } catch (e) { alert('No se pudo guardar la puntuación: ' + e.message); }
+  };
+  const clearBookRating = async (id) => {
+    try {
+      const result = await api.unrateBook(id);
+      setBooks((prev) => prev.map(b => b.id === id ? { ...b, ...result } : b));
+    } catch (e) { alert('No se pudo quitar la puntuación: ' + e.message); }
+  };
+
   const onActivate = (book) => {
     if (selectionMode) { toggleSelect(book.id); return; }
     if (offline && !book.isOffline) {
@@ -257,7 +270,8 @@ export default function LibraryPage() {
               <div className={viewMode === 'list' ? styles.list : styles.grid}>
                 {filtered.map((b) => (
                   <BookCard key={b.id} book={b} selectionMode={selectionMode}
-                    selected={selectedIds.has(b.id)} onActivate={onActivate} />
+                    selected={selectedIds.has(b.id)} onActivate={onActivate}
+                    onRate={(s) => rateBook(b.id, s)} onClear={() => clearBookRating(b.id)} />
                 ))}
               </div>
             )}

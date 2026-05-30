@@ -90,7 +90,7 @@
 }
 .list .card:hover { background: var(--card); }
 .list .cover {
-  grid-row: 1 / span 4;
+  grid-row: 1 / span 5;
   width: 44px;
   aspect-ratio: 2 / 3;
   box-shadow: none;

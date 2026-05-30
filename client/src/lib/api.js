@@ -66,6 +66,10 @@ export const api = {
     call(`/api/shared/${bookId}/rating`, { method: 'PUT', body: { stars } }),
   unrateShared: (bookId) =>
     call(`/api/shared/${bookId}/rating`, { method: 'DELETE' }),
+  rateBook: (bookId, stars) =>
+    call(`/api/books/${bookId}/rating`, { method: 'PUT', body: { stars } }),
+  unrateBook: (bookId) =>
+    call(`/api/books/${bookId}/rating`, { method: 'DELETE' }),
   getProgress: (bookId) => call(`/api/books/${bookId}/progress`),
   putProgress: (bookId, cfi, percentage, totalPages) =>
     call(`/api/books/${bookId}/progress`, {

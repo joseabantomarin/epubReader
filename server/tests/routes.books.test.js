@@ -93,6 +93,48 @@ describe('DELETE /api/books', () => {
   });
 });
 
+describe('PUT/DELETE /api/books/:id/rating (own books)', () => {
+  it('rates an own book and surfaces it in the list', async () => {
+    const up = await request(app).post('/api/books').set(authHeader(user)).attach('file', sample);
+    const rated = await request(app)
+      .put(`/api/books/${up.body.id}/rating`)
+      .set(authHeader(user))
+      .send({ stars: 4 });
+    expect(rated.status).toBe(200);
+    expect(rated.body).toMatchObject({ myStars: 4, ratingCount: 1, avgStars: 4 });
+
+    const list = await request(app).get('/api/books').set(authHeader(user));
+    expect(list.body[0]).toMatchObject({ myStars: 4, ratingCount: 1, avgStars: 4 });
+  });
+
+  it('rejects invalid star values (400)', async () => {
+    const up = await request(app).post('/api/books').set(authHeader(user)).attach('file', sample);
+    const res = await request(app)
+      .put(`/api/books/${up.body.id}/rating`)
+      .set(authHeader(user))
+      .send({ stars: 9 });
+    expect(res.status).toBe(400);
+  });
+
+  it('removes a rating', async () => {
+    const up = await request(app).post('/api/books').set(authHeader(user)).attach('file', sample);
+    await request(app).put(`/api/books/${up.body.id}/rating`).set(authHeader(user)).send({ stars: 5 });
+    const cleared = await request(app).delete(`/api/books/${up.body.id}/rating`).set(authHeader(user));
+    expect(cleared.status).toBe(200);
+    expect(cleared.body).toMatchObject({ myStars: null, ratingCount: 0, avgStars: null });
+  });
+
+  it('refuses to rate a book owned by another user (404)', async () => {
+    const other = insertUser(db, { google_sub: 'other', email: 'o@e.com' });
+    const up = await request(app).post('/api/books').set(authHeader(user)).attach('file', sample);
+    const res = await request(app)
+      .put(`/api/books/${up.body.id}/rating`)
+      .set(authHeader(other))
+      .send({ stars: 3 });
+    expect(res.status).toBe(404);
+  });
+});
+
 describe('GET /api/books/:id/file and /cover', () => {
   it('serves the EPUB to the owner', async () => {
     const up = await request(app).post('/api/books').set(authHeader(user)).attach('file', sample);
