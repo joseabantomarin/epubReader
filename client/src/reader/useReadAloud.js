@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Capacitor } from '@capacitor/core';
+import { TextToSpeech } from '@capacitor-community/text-to-speech';
 
-// foliate's TTS emits SSML (with <mark>/<break> elements). For the Web Speech
-// API we only need the plain text — strip the SSML to its text content.
+const IS_NATIVE = Capacitor.isNativePlatform();
+
+// foliate's TTS emits SSML (with <mark>/<break> elements). For speech we only
+// need the plain text — strip the SSML to its text content.
 function ssmlToText(ssml) {
   if (!ssml || typeof ssml !== 'string') return '';
   try {
@@ -14,9 +18,12 @@ function ssmlToText(ssml) {
 
 // Reads aloud from the CURRENT page using foliate-js's built-in TTS, which
 // walks the document block-by-block and scrolls to each block as it is spoken
-// (so the visible page follows the audio). Each block is spoken with the Web
-// Speech API; it crosses into the next section automatically, and stops on the
-// time budget, end of book, Stop, or unmount.
+// (so the visible page follows the audio). It crosses into the next section
+// automatically, and stops on the time budget, end of book, Stop, or unmount.
+//
+// Audio engine: the native Android TextToSpeech plugin on Capacitor (the
+// WebView's Web Speech API produces no sound there), and the Web Speech API on
+// the web (where it works well).
 export function useReadAloud({ getView, lang }) {
   const [reading, setReading] = useState(false);
   const stopRef = useRef(false);
@@ -25,12 +32,12 @@ export function useReadAloud({ getView, lang }) {
 
   const stop = useCallback(() => {
     stopRef.current = true;
-    try { window.speechSynthesis.cancel(); } catch {}
+    if (IS_NATIVE) { try { TextToSpeech.stop(); } catch {} }
+    else { try { window.speechSynthesis.cancel(); } catch {} }
     setReading(false);
   }, []);
 
-  // getVoices() is async in Chromium (the Android WebView engine): empty until
-  // 'voiceschanged'. Resolve the list once before speaking.
+  // getVoices() is async in Chromium: empty until 'voiceschanged'. Web only.
   const ensureVoices = () => new Promise((resolve) => {
     const ss = window.speechSynthesis;
     const have = ss.getVoices();
@@ -46,15 +53,23 @@ export function useReadAloud({ getView, lang }) {
     setTimeout(finish, 1000); // fallback if the event never fires
   });
 
-  const speak = useCallback((text, voices) => new Promise((resolve) => {
+  // Native: hand the text to the OS TextToSpeech engine, which resolves when
+  // done and has no length/gesture limits.
+  const speakNative = useCallback(async (text) => {
+    try {
+      await TextToSpeech.speak({ text, lang: lang || 'es-ES', rate: 1.0 });
+    } catch { /* missing voice/engine — skip this block */ }
+  }, [lang]);
+
+  // Web: Web Speech API with a pause/resume keep-alive (Chromium stops
+  // utterances longer than ~15s).
+  const speakWeb = useCallback((text, voices) => new Promise((resolve) => {
     const ss = window.speechSynthesis;
     const u = new SpeechSynthesisUtterance(text);
     if (lang) u.lang = lang;
     const prefix = lang ? String(lang).toLowerCase().split('-')[0] : '';
     const voice = prefix ? voices.find(v => v.lang?.toLowerCase().startsWith(prefix)) : null;
     if (voice) u.voice = voice;
-    // Chromium (incl. the Android WebView) stops utterances longer than ~15s;
-    // a periodic pause+resume keeps long blocks playing to the end.
     let keepAlive = null;
     const done = () => { if (keepAlive) { clearInterval(keepAlive); keepAlive = null; } resolve(); };
     u.onend = done;
@@ -70,22 +85,12 @@ export function useReadAloud({ getView, lang }) {
     if (runningRef.current) return;
     const view = getView();
     if (!view || typeof view.initTTS !== 'function') return;
-    // Unlock speech synchronously within the user gesture. The Android WebView
-    // (Chromium) blocks the first speak() unless it happens during user
-    // activation; our later speaks run after awaits, so warm it up now.
-    try {
-      const ss = window.speechSynthesis;
-      ss.cancel();
-      ss.resume();
-      const warm = new SpeechSynthesisUtterance('​'); // zero-width space
-      warm.volume = 0;
-      ss.speak(warm);
-    } catch {}
     runningRef.current = true;
     stopRef.current = false;
     setReading(true);
     const deadline = performance.now() + minutes * 60_000;
-    const voices = await ensureVoices();
+    const voices = IS_NATIVE ? null : await ensureVoices();
+    const speak = (text) => (IS_NATIVE ? speakNative(text) : speakWeb(text, voices));
     try {
       await view.initTTS('sentence');
       // Start at the block under the current page; fall back to the section start.
@@ -96,7 +101,7 @@ export function useReadAloud({ getView, lang }) {
       while (!stopRef.current && performance.now() < deadline) {
         const text = ssmlToText(ssml);
         if (text) {
-          await speak(text, voices);
+          await speak(text);
           if (stopRef.current || performance.now() >= deadline) break;
         }
         // Advance to the next block; paused=true makes foliate scroll the page
@@ -117,15 +122,17 @@ export function useReadAloud({ getView, lang }) {
     } catch { /* best-effort: stop quietly on any TTS/render error */ }
     finally {
       runningRef.current = false;
-      try { window.speechSynthesis.cancel(); } catch {}
+      if (IS_NATIVE) { try { TextToSpeech.stop(); } catch {} }
+      else { try { window.speechSynthesis.cancel(); } catch {} }
       if (mountedRef.current) setReading(false);
     }
-  }, [getView, speak]);
+  }, [getView, speakNative, speakWeb]);
 
   useEffect(() => () => {
     mountedRef.current = false;
     stopRef.current = true;
-    try { window.speechSynthesis.cancel(); } catch {}
+    if (IS_NATIVE) { try { TextToSpeech.stop(); } catch {} }
+    else { try { window.speechSynthesis.cancel(); } catch {} }
   }, []);
 
   return { reading, start, stop };
