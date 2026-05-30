@@ -18,7 +18,7 @@ export function createAIRouter() {
     if (!raw) return res.status(400).json({ error: 'missing_text' });
     const text = raw.slice(0, MAX_CHARS);
     try {
-      const r2 = await fetch(GROQ_URL, {
+      const groqRes = await fetch(GROQ_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -27,14 +27,16 @@ export function createAIRouter() {
         body: JSON.stringify({
           model: config.groqModel,
           temperature: 0.3,
+          max_tokens: 400,
           messages: [
             { role: 'system', content: SYSTEM_PROMPT },
             { role: 'user', content: `Explica este pasaje:\n\n${text}` },
           ],
         }),
+        signal: AbortSignal.timeout(10_000),
       });
-      if (!r2.ok) return res.status(502).json({ error: 'ai_failed' });
-      const data = await r2.json();
+      if (!groqRes.ok) return res.status(502).json({ error: 'ai_failed' });
+      const data = await groqRes.json();
       const explanation = data?.choices?.[0]?.message?.content?.trim();
       if (!explanation) return res.status(502).json({ error: 'ai_failed' });
       res.json({ explanation });

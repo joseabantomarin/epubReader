@@ -80,7 +80,7 @@ export function createApp(options = {}) {
   if (!isTest) {
     app.use('/api/ai', rateLimit({ windowMs: 60_000, max: 20 }));
   }
-  app.use('/api/ai', createAIRouter(db));
+  app.use('/api/ai', createAIRouter());
 
   // Public downloads (e.g. Android APK). Outside the SPA dist so it survives
   // client rebuilds; served in any environment.

@@ -8,7 +8,7 @@ import { config } from '../src/config.js';
 function app(db) {
   const a = express();
   a.use(express.json());
-  a.use('/api/ai', createAIRouter(db));
+  a.use('/api/ai', createAIRouter());
   return a;
 }
 
@@ -58,5 +58,19 @@ describe('POST /api/ai/explain', () => {
     const res = await request(a).post('/api/ai/explain').set(authHeader(user)).send({ text: 'x' });
     expect(res.status).toBe(502);
     expect(res.body).toMatchObject({ error: 'ai_failed' });
+  });
+
+  it('502 when the Groq request throws', async () => {
+    config.groqApiKey = 'k';
+    global.fetch = vi.fn().mockRejectedValue(new Error('ECONNREFUSED'));
+    const res = await request(a).post('/api/ai/explain').set(authHeader(user)).send({ text: 'x' });
+    expect(res.status).toBe(502);
+    expect(res.body).toMatchObject({ error: 'ai_failed' });
+  });
+
+  it('400 when the text key is absent', async () => {
+    config.groqApiKey = 'k';
+    const res = await request(a).post('/api/ai/explain').set(authHeader(user)).send({});
+    expect(res.status).toBe(400);
   });
 });
