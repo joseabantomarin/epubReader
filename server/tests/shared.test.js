@@ -17,9 +17,9 @@ function app(db, dataDir) {
   return a;
 }
 
-function insertBook(db, userId, { title = 'Book', shared = 0 } = {}) {
-  return db.prepare("INSERT INTO books (user_id, title, file_path, format, shared) VALUES (?, ?, 'p', 'epub', ?)")
-    .run(userId, title, shared).lastInsertRowid;
+function insertBook(db, userId, { title = 'Book', shared = 0, cover = false } = {}) {
+  return db.prepare("INSERT INTO books (user_id, title, file_path, format, shared, cover_path) VALUES (?, ?, 'p', 'epub', ?, ?)")
+    .run(userId, title, shared, cover ? 'books/x/1.jpg' : null).lastInsertRowid;
 }
 
 describe('shared router', () => {
@@ -35,7 +35,7 @@ describe('shared router', () => {
 
   it('lists only shared books with owner name, for an anonymous caller', async () => {
     insertBook(db, alice.id, { title: 'Private' });
-    insertBook(db, alice.id, { title: 'Public', shared: 1 });
+    insertBook(db, alice.id, { title: 'Public', shared: 1, cover: true });
     const res = await request(a).get('/api/shared');
     expect(res.status).toBe(200);
     expect(res.body).toHaveLength(1);

@@ -51,7 +51,7 @@ export function createSharedRouter(db, dataDir) {
       title: row.title,
       author: row.author,
       format: row.format,
-      coverUrl: `/api/shared/${row.id}/cover`,
+      coverUrl: row.cover_path ? `/api/shared/${row.id}/cover` : null,
       sharedBy: row.owner_name || row.owner_email,
       mine: req.user ? row.user_id === req.user.sub : false,
       avgStars: row.avg_stars != null ? Number(row.avg_stars) : null,
