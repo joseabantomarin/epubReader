@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
 import styles from './reader.module.css';
@@ -14,6 +14,7 @@ import WiktionaryModal from './WiktionaryModal.jsx';
 import AIExplainModal from './AIExplainModal.jsx';
 import NoteModal from './NoteModal.jsx';
 import AnnotationsDrawer from './AnnotationsDrawer.jsx';
+import { useReadAloud } from './useReadAloud.js';
 
 // foliate-js is loaded as a static asset from /public; defining 'foliate-view'
 // as a custom element. We dynamically import it once per session. The URL is
@@ -562,6 +563,25 @@ export default function ReaderPage() {
     navigate('/');
   };
 
+  // Best-effort: text of the most recently loaded section document. The view
+  // advances once per utterance, so successive calls cover successive pages.
+  function getPageText() {
+    const entries = [...docsRef.current.values()];
+    const doc = entries[entries.length - 1]?.doc;
+    return doc?.body?.innerText?.trim() || '';
+  }
+
+  const { reading, start: startReadAloud, stop: stopReadAloud } =
+    useReadAloud({ getView: () => viewRef.current, getPageText, lang: bookLang });
+
+  const onSpeakerClick = useCallback(() => {
+    if (reading) { stopReadAloud(); return; }
+    const ans = window.prompt('¿Cuántos minutos leer?', '15');
+    if (ans === null) return;
+    const minutes = Math.max(1, Math.min(180, Number(ans) || 15));
+    startReadAloud(minutes);
+  }, [reading, stopReadAloud, startReadAloud]);
+
   return (
     <main className={styles.page}>
       <header className={styles.header}>
@@ -578,6 +598,18 @@ export default function ReaderPage() {
           <button className={styles.back} onClick={() => setTocOpen(true)}
             aria-label="Índice de capítulos" title="Índice de capítulos">☰</button>
         )}
+        <button className={`${styles.back} ${reading ? styles.backActive : ''}`}
+          onClick={onSpeakerClick}
+          aria-label={reading ? 'Detener lectura' : 'Leer en voz alta'}
+          title={reading ? 'Detener lectura' : 'Leer en voz alta'}>
+          {reading ? (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+          ) : (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a9 9 0 0 1 0 14"/>
+            </svg>
+          )}
+        </button>
         {!isShared && (
           <button className={styles.back} onClick={() => setAnnotationsOpen(true)}
             aria-label="Subrayados" title="Subrayados">★</button>
