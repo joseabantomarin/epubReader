@@ -1,17 +1,17 @@
 import { useEffect, useState } from 'react';
 import styles from './annotations.module.css';
 
-// Small dialog asking how many minutes to read aloud. Replaces window.prompt,
+// Small dialog asking how many pages to read aloud. Replaces window.prompt,
 // which is unreliable in the Android WebView and showed no default value.
-export default function ReadAloudDialog({ open, onClose, onStart }) {
-  const [minutes, setMinutes] = useState('15');
+export default function ReadAloudDialog({ open, onClose, onStart, maxPages = 100 }) {
+  const [pages, setPages] = useState('5');
 
-  useEffect(() => { if (open) setMinutes('15'); }, [open]);
+  useEffect(() => { if (open) setPages('5'); }, [open]);
 
   if (!open) return null;
 
   const submit = () => {
-    const n = Math.max(1, Math.min(100, Math.round(Number(minutes) || 15)));
+    const n = Math.max(1, Math.min(maxPages, Math.round(Number(pages) || 5)));
     onStart(n);
   };
 
@@ -24,11 +24,11 @@ export default function ReadAloudDialog({ open, onClose, onStart }) {
         </header>
         <div className={styles.modalBody}>
           <label style={{ display: 'block', marginBottom: 10 }}>
-            ¿Cuántos minutos leer? (máx. 100)
+            ¿Cuántas páginas leer? (máx. {maxPages})
             <input
-              type="number" min="1" max="100" inputMode="numeric"
-              value={minutes}
-              onChange={(e) => setMinutes(e.target.value)}
+              type="number" min="1" max={maxPages} inputMode="numeric"
+              value={pages}
+              onChange={(e) => setPages(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
               autoFocus
               style={{ display: 'block', marginTop: 6, width: '100%', padding: '8px 10px', fontSize: 16, boxSizing: 'border-box' }}

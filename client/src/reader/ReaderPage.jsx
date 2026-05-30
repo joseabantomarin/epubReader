@@ -588,7 +588,7 @@ export default function ReaderPage() {
 
   const getView = useCallback(() => viewRef.current, []);
 
-  const { reading, start: startReadAloud, stop: stopReadAloud } =
+  const { reading, preparing, start: startReadAloud, stop: stopReadAloud, maxPages } =
     useReadAloud({ getView, lang: bookLang });
 
   // While reading aloud on Android, stop hijacking the volume keys for page
@@ -710,6 +710,7 @@ export default function ReaderPage() {
       <div className={styles.viewport} ref={containerRef}>
         {loading && <div className={styles.loading}>Cargando libro…</div>}
         {error && <div className={styles.loading} style={{ color: '#b00020' }}>{error}</div>}
+        {preparing && <div className={styles.loading} style={{ background: 'var(--bg)' }}>Preparando lectura…</div>}
         {!isNative && (
           <>
             <button className={`${styles.navBtn} ${styles.navPrev} ${selectionMode ? styles.navPassthrough : ''}`}
@@ -780,8 +781,9 @@ export default function ReaderPage() {
       <AIExplainModal text={aiText} onClose={() => { setAiText(null); clearSelection(); }} />
       <ReadAloudDialog
         open={readDialogOpen}
+        maxPages={maxPages}
         onClose={() => setReadDialogOpen(false)}
-        onStart={(minutes) => { setReadDialogOpen(false); startReadAloud(minutes); }}
+        onStart={(pages) => { setReadDialogOpen(false); startReadAloud(pages); }}
       />
       <NoteModal
         open={!!noteFor}
