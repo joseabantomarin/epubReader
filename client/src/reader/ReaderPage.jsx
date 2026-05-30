@@ -15,6 +15,7 @@ import AIExplainModal from './AIExplainModal.jsx';
 import NoteModal from './NoteModal.jsx';
 import AnnotationsDrawer from './AnnotationsDrawer.jsx';
 import { useReadAloud } from './useReadAloud.js';
+import ReadAloudDialog from './ReadAloudDialog.jsx';
 
 // foliate-js is loaded as a static asset from /public; defining 'foliate-view'
 // as a custom element. We dynamically import it once per session. The URL is
@@ -563,25 +564,16 @@ export default function ReaderPage() {
     navigate('/');
   };
 
-  // Best-effort: text of the most recently loaded section document. The view
-  // advances once per utterance, so successive calls cover successive pages.
-  const getPageText = useCallback(() => {
-    const entries = [...docsRef.current.values()];
-    const doc = entries[entries.length - 1]?.doc;
-    return doc?.body?.innerText?.trim() || '';
-  }, []);
   const getView = useCallback(() => viewRef.current, []);
 
   const { reading, start: startReadAloud, stop: stopReadAloud } =
-    useReadAloud({ getView, getPageText, lang: bookLang });
+    useReadAloud({ getView, lang: bookLang });
 
+  const [readDialogOpen, setReadDialogOpen] = useState(false);
   const onSpeakerClick = useCallback(() => {
     if (reading) { stopReadAloud(); return; }
-    const ans = window.prompt('¿Cuántos minutos leer?', '15');
-    if (ans === null) return;
-    const minutes = Math.max(1, Math.min(180, Number(ans) || 15));
-    startReadAloud(minutes);
-  }, [reading, stopReadAloud, startReadAloud]);
+    setReadDialogOpen(true);
+  }, [reading, stopReadAloud]);
 
   return (
     <main className={styles.page}>
@@ -694,6 +686,11 @@ export default function ReaderPage() {
         onClose={() => { setDictTerm(null); clearSelection(); }}
       />
       <AIExplainModal text={aiText} onClose={() => { setAiText(null); clearSelection(); }} />
+      <ReadAloudDialog
+        open={readDialogOpen}
+        onClose={() => setReadDialogOpen(false)}
+        onStart={(minutes) => { setReadDialogOpen(false); startReadAloud(minutes); }}
+      />
       <NoteModal
         open={!!noteFor}
         snippet={noteFor?.text}
