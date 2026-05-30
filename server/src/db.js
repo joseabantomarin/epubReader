@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS books (
   file_path     TEXT    NOT NULL,
   file_size     INTEGER,
   format        TEXT    NOT NULL DEFAULT 'epub',
+  shared        INTEGER NOT NULL DEFAULT 0,
   uploaded_at   TEXT    DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_books_user ON books(user_id);
@@ -47,6 +48,15 @@ CREATE TABLE IF NOT EXISTS annotations (
   updated_at    TEXT    DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_annotations_book ON annotations(book_id);
+
+CREATE TABLE IF NOT EXISTS ratings (
+  book_id    INTEGER NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+  user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  stars      INTEGER NOT NULL CHECK (stars BETWEEN 1 AND 5),
+  updated_at TEXT    DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (book_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_ratings_book ON ratings(book_id);
 `;
 
 function hasColumn(db, table, column) {
@@ -75,6 +85,10 @@ export function openDb(filePath) {
   }
   if (!hasColumn(db, 'annotations', 'page')) {
     db.exec("ALTER TABLE annotations ADD COLUMN page INTEGER");
+  }
+  // Migration: add shared flag to pre-existing books.
+  if (!hasColumn(db, 'books', 'shared')) {
+    db.exec('ALTER TABLE books ADD COLUMN shared INTEGER NOT NULL DEFAULT 0');
   }
   return db;
 }
