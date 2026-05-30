@@ -70,6 +70,17 @@ export function useReadAloud({ getView, lang }) {
     if (runningRef.current) return;
     const view = getView();
     if (!view || typeof view.initTTS !== 'function') return;
+    // Unlock speech synchronously within the user gesture. The Android WebView
+    // (Chromium) blocks the first speak() unless it happens during user
+    // activation; our later speaks run after awaits, so warm it up now.
+    try {
+      const ss = window.speechSynthesis;
+      ss.cancel();
+      ss.resume();
+      const warm = new SpeechSynthesisUtterance('​'); // zero-width space
+      warm.volume = 0;
+      ss.speak(warm);
+    } catch {}
     runningRef.current = true;
     stopRef.current = false;
     setReading(true);
