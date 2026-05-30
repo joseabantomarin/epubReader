@@ -40,8 +40,8 @@
   gap: 12px;
   padding: 6px max(14px, env(safe-area-inset-right)) max(6px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
   border-top: 1px solid var(--border);
-  background: var(--card);
-  font-size: 12px; color: var(--muted);
+  background: #e5e5e5;
+  font-size: 12px; color: #000000;
   font-variant-numeric: tabular-nums;
 }
 .footerPages { font-weight: 600; justify-self: start; }

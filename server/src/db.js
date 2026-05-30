@@ -32,6 +32,19 @@ CREATE TABLE IF NOT EXISTS reading_progress (
   total_pages   INTEGER,
   last_read_at  TEXT    DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS annotations (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  book_id       INTEGER NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+  user_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  cfi           TEXT    NOT NULL,
+  text          TEXT    NOT NULL DEFAULT '',
+  note          TEXT    NOT NULL DEFAULT '',
+  color         TEXT    NOT NULL DEFAULT '#ffd400',
+  created_at    TEXT    DEFAULT CURRENT_TIMESTAMP,
+  updated_at    TEXT    DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_annotations_book ON annotations(book_id);
 `;
 
 function hasColumn(db, table, column) {

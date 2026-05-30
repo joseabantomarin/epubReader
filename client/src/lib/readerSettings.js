@@ -18,7 +18,7 @@ export const FONT_FAMILIES = {
 
 export const THEMES = {
   light: { background: '#ffffff', color: '#1a1a1a' },
-  sepia: { background: '#f4ecd8', color: '#5b4636' },
+  sepia: { background: '#f4ecd8', color: '#000000' },
   dark:  { background: '#14141a', color: '#e8e8e8' },
 };
 

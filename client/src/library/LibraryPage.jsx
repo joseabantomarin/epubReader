@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Capacitor } from '@capacitor/core';
 import styles from './library.module.css';
 import { api } from '../lib/api.js';
 import { isPdfFile, extractPdfMeta } from '../lib/pdfMeta.js';
@@ -151,7 +152,9 @@ export default function LibraryPage() {
           <h1 className={styles.title}>MisLibros</h1>
         </div>
         <div className={styles.userBox}>
-          <FullscreenButton className={styles.iconBtn} isFullscreen={isFullscreen} onToggle={toggleFullscreen} />
+          {!Capacitor.isNativePlatform() && (
+            <FullscreenButton className={styles.iconBtn} isFullscreen={isFullscreen} onToggle={toggleFullscreen} />
+          )}
           <button
             className={styles.iconBtn}
             onClick={() => setSettingsOpen(true)}

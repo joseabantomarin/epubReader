@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
+import { Capacitor } from '@capacitor/core';
 import styles from './settings.module.css';
 import { DEFAULTS, loadSettings, saveSettings } from '../lib/readerSettings.js';
+
+const IS_NATIVE = Capacitor.isNativePlatform();
 
 const FONT_FAMILY_OPTIONS = [
   { value: 'system', label: 'Sistema' },
@@ -102,17 +105,19 @@ export default function SettingsModal({ open, onClose }) {
             </div>
           </section>
 
-          <section className={styles.row}>
-            <label className={styles.label}>Mano dominante</label>
-            <div className={styles.chips}>
-              <button
-                className={`${styles.chip} ${s.handedness === 'right' ? styles.chipActive : ''}`}
-                onClick={() => update({ handedness: 'right' })}>Diestro</button>
-              <button
-                className={`${styles.chip} ${s.handedness === 'left' ? styles.chipActive : ''}`}
-                onClick={() => update({ handedness: 'left' })}>Zurdo</button>
-            </div>
-          </section>
+          {!IS_NATIVE && (
+            <section className={styles.row}>
+              <label className={styles.label}>Mano dominante</label>
+              <div className={styles.chips}>
+                <button
+                  className={`${styles.chip} ${s.handedness === 'right' ? styles.chipActive : ''}`}
+                  onClick={() => update({ handedness: 'right' })}>Diestro</button>
+                <button
+                  className={`${styles.chip} ${s.handedness === 'left' ? styles.chipActive : ''}`}
+                  onClick={() => update({ handedness: 'left' })}>Zurdo</button>
+              </div>
+            </section>
+          )}
 
           <p className={styles.hint}>Los cambios se aplican la próxima vez que abras un libro.</p>
         </div>

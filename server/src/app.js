@@ -11,6 +11,7 @@ import { config } from './config.js';
 import { createAuthRouter } from './routes/auth.js';
 import { createBooksRouter } from './routes/books.js';
 import { createProgressRouter } from './routes/progress.js';
+import { createAnnotationsRouter } from './routes/annotations.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -32,7 +33,7 @@ export function createApp(options = {}) {
           'script-src': ["'self'", 'https://accounts.google.com/gsi/client'],
           // blob: needed so foliate-js can embed EPUB chapter content in iframes.
           'frame-src': ["'self'", 'https://accounts.google.com', 'blob:'],
-          'connect-src': ["'self'", 'https://accounts.google.com'],
+          'connect-src': ["'self'", 'https://accounts.google.com', 'https://*.wiktionary.org'],
           'img-src': ["'self'", 'data:', 'https:', 'blob:'],
           'style-src': ["'self'", "'unsafe-inline'", 'https://accounts.google.com', 'blob:'],
           'style-src-elem': ["'self'", "'unsafe-inline'", 'https://accounts.google.com', 'blob:'],
@@ -71,6 +72,7 @@ export function createApp(options = {}) {
   }
   app.use('/api/books', createBooksRouter(db, dataDir));
   app.use('/api/books', createProgressRouter(db));
+  app.use('/api/books', createAnnotationsRouter(db));
 
   // Public downloads (e.g. Android APK). Outside the SPA dist so it survives
   // client rebuilds; served in any environment.

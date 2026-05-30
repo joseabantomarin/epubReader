@@ -9,6 +9,10 @@ import { percent } from '../lib/format.js';
 import { loadSettings, FONT_FAMILIES, resolveTheme } from '../lib/readerSettings.js';
 import { useFullscreen } from '../lib/useFullscreen.js';
 import FullscreenButton from '../lib/FullscreenButton.jsx';
+import SelectionMenu from './SelectionMenu.jsx';
+import WiktionaryModal from './WiktionaryModal.jsx';
+import NoteModal from './NoteModal.jsx';
+import AnnotationsDrawer from './AnnotationsDrawer.jsx';
 
 // foliate-js is loaded as a static asset from /public; defining 'foliate-view'
 // as a custom element. We dynamically import it once per session. The URL is
@@ -20,6 +24,20 @@ function loadFoliate() {
     foliateLoaded = import(/* @vite-ignore */ url);
   }
   return foliateLoaded;
+}
+
+// Convert a DOM Range inside a chapter iframe to viewport coordinates.
+// The Range's getBoundingClientRect is iframe-relative — add the iframe's
+// own offset to get fixed-position coords for menu placement.
+function rangeToViewportRect(range) {
+  if (!range) return null;
+  const doc = range.startContainer?.ownerDocument;
+  const iframe = doc?.defaultView?.frameElement;
+  const r = range.getBoundingClientRect();
+  if (!r || (r.width === 0 && r.height === 0)) return null;
+  const offX = iframe ? iframe.getBoundingClientRect().x : 0;
+  const offY = iframe ? iframe.getBoundingClientRect().y : 0;
+  return { x: r.x + offX, y: r.y + offY, w: r.width, h: r.height };
 }
 
 export default function ReaderPage() {
@@ -47,6 +65,17 @@ export default function ReaderPage() {
   const isNative = Capacitor.isNativePlatform();
   const onLeftSide = () => leftSideAdvances ? viewRef.current?.next() : viewRef.current?.prev();
   const onRightSide = () => leftSideAdvances ? viewRef.current?.prev() : viewRef.current?.next();
+
+  const [annotations, setAnnotations] = useState([]);
+  const annotationsRef = useRef([]);
+  useEffect(() => { annotationsRef.current = annotations; }, [annotations]);
+  const [annotationsOpen, setAnnotationsOpen] = useState(false);
+  // Active selection: { text, cfi, rect:{x,y,w,h}, existingId? }. rect is in viewport coords.
+  const [selection, setSelection] = useState(null);
+  const [dictTerm, setDictTerm] = useState(null);
+  const [noteFor, setNoteFor] = useState(null);   // { id?, text, cfi, note }
+  const [bookLang, setBookLang] = useState('es');
+  const docsRef = useRef(new Map());                // index → { doc, iframe }
 
   useEffect(() => {
     let disposed = false;
@@ -151,16 +180,74 @@ export default function ReaderPage() {
         let savingEnabled = false;
         setTimeout(() => { savingEnabled = true; }, 500);
 
+        // Annotations: load existing from server, set up draw style, listen for taps.
+        const rawLang = view.book?.metadata?.language;
+        const detectedLang = String((Array.isArray(rawLang) ? rawLang[0] : rawLang) || 'es').split(/[-_]/)[0];
+        setBookLang(detectedLang);
+        const { Overlayer } = await import(/* @vite-ignore */
+          new URL('/foliate-js/overlayer.js', window.location.origin).href);
+        view.addEventListener('draw-annotation', (ev) => {
+          const { draw, annotation } = ev.detail;
+          draw(Overlayer.highlight, { color: annotation?.color || '#ffd400' });
+        });
+        view.addEventListener('show-annotation', (ev) => {
+          const { value, range } = ev.detail;
+          const ann = annotationsRef.current.find(a => a.cfi === value);
+          if (!ann) return;
+          const rect = rangeToViewportRect(range);
+          if (!rect) return;
+          setSelection({ text: ann.text, cfi: ann.cfi, rect, existingId: ann.id, note: ann.note });
+        });
+        try {
+          const list = await api.listAnnotations(bookId);
+          if (!disposed && Array.isArray(list)) {
+            setAnnotations(list);
+            for (const a of list) {
+              try { await view.addAnnotation({ value: a.cfi, color: a.color }); } catch {}
+            }
+          }
+        } catch { /* offline or not yet — silent */ }
+
         // Fallback lang on each section's document so hyphens: auto can work
         // even when the book itself doesn't declare a language.
         view.addEventListener('load', (e) => {
           const doc = e.detail?.doc;
+          const index = e.detail?.index;
           if (!doc?.documentElement) return;
           if (!doc.documentElement.getAttribute('lang')) {
             const raw = view.book?.metadata?.language;
             const lang = (Array.isArray(raw) ? raw[0] : raw) || 'es';
             doc.documentElement.setAttribute('lang', String(lang).split(/[-_]/)[0]);
           }
+          docsRef.current.set(index, { doc, iframe: doc.defaultView?.frameElement || null });
+
+          // Watch for text selection inside the chapter iframe.
+          const onSelectionChange = () => {
+            const sel = doc.getSelection();
+            if (!sel || sel.isCollapsed || sel.rangeCount === 0) {
+              // Don't clobber an existing highlight tap — show-annotation also sets selection.
+              setSelection((prev) => (prev?.existingId ? prev : null));
+              return;
+            }
+            const range = sel.getRangeAt(0);
+            const text = sel.toString().trim();
+            if (!text) { setSelection(null); return; }
+            const rect = rangeToViewportRect(range);
+            if (!rect) return;
+            let cfi = null;
+            try { cfi = view.getCFI(index, range); } catch {}
+            setSelection({ text, cfi, rect, existingId: null });
+          };
+          // selectionchange fires often during a drag. Settle a touch after
+          // the user lifts the finger / mouse.
+          let pending = null;
+          const debouncedSelChange = () => {
+            if (pending) clearTimeout(pending);
+            pending = setTimeout(onSelectionChange, 150);
+          };
+          doc.addEventListener('selectionchange', debouncedSelChange);
+          doc.addEventListener('touchend', onSelectionChange);
+          doc.addEventListener('mouseup', onSelectionChange);
         });
 
         view.addEventListener('relocate', (e) => {
@@ -266,6 +353,105 @@ export default function ReaderPage() {
 
   const [selectionMode, setSelectionMode] = useState(false);
 
+  // Compute a menu position above the rect if there's room, otherwise below.
+  const menuPos = (() => {
+    if (!selection?.rect) return null;
+    const { x, y, w, h } = selection.rect;
+    const above = y - 50;
+    return { x: x + w / 2, y: above > 60 ? above : y + h + 12 };
+  })();
+
+  const refreshAnnotations = async () => {
+    try {
+      const list = await api.listAnnotations(bookId);
+      if (Array.isArray(list)) setAnnotations(list);
+    } catch {}
+  };
+
+  const onHighlight = async () => {
+    if (!selection?.cfi) { setSelection(null); return; }
+    try {
+      const ann = await api.createAnnotation(bookId, {
+        cfi: selection.cfi, text: selection.text, note: '', color: '#ffd400',
+      });
+      setAnnotations((prev) => [...prev, ann]);
+      try { await viewRef.current?.addAnnotation({ value: ann.cfi, color: ann.color }); } catch {}
+    } catch (e) { console.error('[highlight]', e); }
+    clearSelection();
+  };
+
+  const onNote = async () => {
+    if (selection?.existingId) {
+      setNoteFor({ id: selection.existingId, text: selection.text, cfi: selection.cfi, note: selection.note || '' });
+    } else if (selection?.cfi) {
+      setNoteFor({ text: selection.text, cfi: selection.cfi, note: '' });
+    }
+  };
+
+  const saveNote = async (note) => {
+    if (!noteFor) return;
+    try {
+      if (noteFor.id) {
+        await api.updateAnnotation(bookId, noteFor.id, { note });
+        setAnnotations((prev) => prev.map(a => a.id === noteFor.id ? { ...a, note } : a));
+      } else {
+        const ann = await api.createAnnotation(bookId, {
+          cfi: noteFor.cfi, text: noteFor.text, note, color: '#ffd400',
+        });
+        setAnnotations((prev) => [...prev, ann]);
+        try { await viewRef.current?.addAnnotation({ value: ann.cfi, color: ann.color }); } catch {}
+      }
+    } catch (e) { console.error('[note save]', e); }
+    setNoteFor(null);
+    clearSelection();
+  };
+
+  const onDelete = async () => {
+    if (!selection?.existingId) return;
+    try {
+      await api.deleteAnnotation(bookId, selection.existingId);
+      try { await viewRef.current?.deleteAnnotation({ value: selection.cfi }); } catch {}
+      setAnnotations((prev) => prev.filter(a => a.id !== selection.existingId));
+    } catch (e) { console.error('[delete]', e); }
+    setNoteFor(null);
+    clearSelection();
+  };
+
+  const onCopy = async () => {
+    if (!selection?.text) return;
+    try { await navigator.clipboard?.writeText(selection.text); } catch {}
+    clearSelection();
+  };
+
+  const onShare = async () => {
+    if (!selection?.text) return;
+    try {
+      if (navigator.share) await navigator.share({ text: selection.text, title });
+      else await navigator.clipboard?.writeText(selection.text);
+    } catch {}
+    clearSelection();
+  };
+
+  const onDictionary = () => {
+    if (!selection?.text) return;
+    const first = selection.text.split(/\s+/)[0]?.replace(/[^\p{L}\p{N}'-]/gu, '');
+    if (first) setDictTerm(first);
+  };
+
+  const clearSelection = () => {
+    // Drop the React state AND clear the iframe selection so a stray touch
+    // doesn't reopen the menu.
+    setSelection(null);
+    for (const { doc } of docsRef.current.values()) {
+      try { doc.getSelection()?.removeAllRanges(); } catch {}
+    }
+  };
+
+  const jumpToAnnotation = async (a) => {
+    setAnnotationsOpen(false);
+    try { await viewRef.current?.goTo(a.cfi); } catch {}
+  };
+
   const goToChapter = (href) => {
     if (!href) return;
     try { viewRef.current?.goTo(href); } catch {}
@@ -296,6 +482,8 @@ export default function ReaderPage() {
           <button className={styles.back} onClick={() => setTocOpen(true)}
             aria-label="Índice de capítulos" title="Índice de capítulos">☰</button>
         )}
+        <button className={styles.back} onClick={() => setAnnotationsOpen(true)}
+          aria-label="Subrayados" title="Subrayados">★</button>
         {!isNative && (
           <button className={`${styles.back} ${selectionMode ? styles.backActive : ''}`}
             onClick={() => setSelectionMode((v) => !v)}
@@ -306,7 +494,9 @@ export default function ReaderPage() {
             </svg>
           </button>
         )}
-        <FullscreenButton className={styles.back} isFullscreen={isFullscreen} onToggle={toggleFullscreen} hint="F" />
+        {!isNative && (
+          <FullscreenButton className={styles.back} isFullscreen={isFullscreen} onToggle={toggleFullscreen} hint="F" />
+        )}
       </header>
       <div className={styles.viewport} ref={containerRef}>
         {loading && <div className={styles.loading}>Cargando libro…</div>}
@@ -351,6 +541,37 @@ export default function ReaderPage() {
           </aside>
         </>
       )}
+
+      <SelectionMenu
+        pos={menuPos}
+        existingId={selection?.existingId}
+        onDictionary={onDictionary}
+        onHighlight={onHighlight}
+        onNote={onNote}
+        onCopy={onCopy}
+        onShare={onShare}
+        onDelete={onDelete}
+      />
+      <WiktionaryModal
+        open={!!dictTerm}
+        term={dictTerm || ''}
+        lang={bookLang}
+        onClose={() => { setDictTerm(null); clearSelection(); }}
+      />
+      <NoteModal
+        open={!!noteFor}
+        snippet={noteFor?.text}
+        initialNote={noteFor?.note || ''}
+        onSave={saveNote}
+        onClose={() => { setNoteFor(null); clearSelection(); }}
+        onDelete={noteFor?.id ? onDelete : null}
+      />
+      <AnnotationsDrawer
+        open={annotationsOpen}
+        annotations={annotations}
+        onJump={jumpToAnnotation}
+        onClose={() => setAnnotationsOpen(false)}
+      />
     </main>
   );
 }

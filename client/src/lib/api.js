@@ -63,6 +63,16 @@ export const api = {
       method: 'PUT',
       body: totalPages != null ? { cfi, percentage, totalPages } : { cfi, percentage },
     }),
+  listAnnotations: (bookId) => call(`/api/books/${bookId}/annotations`),
+  createAnnotation: (bookId, { cfi, text, note, color }) =>
+    call(`/api/books/${bookId}/annotations`, {
+      method: 'POST',
+      body: { cfi, text, note, color },
+    }),
+  updateAnnotation: (bookId, annId, patch) =>
+    call(`/api/books/${bookId}/annotations/${annId}`, { method: 'PATCH', body: patch }),
+  deleteAnnotation: (bookId, annId) =>
+    call(`/api/books/${bookId}/annotations/${annId}`, { method: 'DELETE' }),
   // Fire-and-forget save that survives page unload / tab hide on mobile.
   putProgressKeepalive: (bookId, cfi, percentage) => {
     const token = getToken();
