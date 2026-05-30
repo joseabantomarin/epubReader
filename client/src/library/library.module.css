@@ -21,7 +21,11 @@
 @media (min-width: 640px) { .title { font-size: 28px; } }
 
 .userBox { display: flex; align-items: center; gap: 8px; }
-.avatar { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; }
+.avatar {
+  width: 32px; height: 32px; border-radius: 50%; object-fit: cover;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: #3070e8; color: #fff; font-weight: 600; font-size: 14px;
+}
 .logoutBtn {
   background: transparent; border: 1px solid var(--border);
   border-radius: 8px; padding: 6px 10px; cursor: pointer; color: inherit;

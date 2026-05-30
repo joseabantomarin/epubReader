@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { Capacitor } from '@capacitor/core';
 import styles from './reader.module.css';
 import { api, bookFileUrl, getToken } from '../lib/api.js';
 import { getBookFile, putBookFile } from '../lib/offlineCache.js';
@@ -41,6 +42,9 @@ export default function ReaderPage() {
   const [isFullscreen, toggleFullscreen] = useFullscreen();
   const [handedness] = useState(() => loadSettings().handedness);
   const leftSideAdvances = handedness === 'left';
+  // On Android (Capacitor) we rely on swipe + volume keys, no tap zones and
+  // no selection-mode toggle — the system long-press already selects text.
+  const isNative = Capacitor.isNativePlatform();
   const onLeftSide = () => leftSideAdvances ? viewRef.current?.next() : viewRef.current?.prev();
   const onRightSide = () => leftSideAdvances ? viewRef.current?.prev() : viewRef.current?.next();
 
@@ -292,28 +296,34 @@ export default function ReaderPage() {
           <button className={styles.back} onClick={() => setTocOpen(true)}
             aria-label="Índice de capítulos" title="Índice de capítulos">☰</button>
         )}
-        <button className={`${styles.back} ${selectionMode ? styles.backActive : ''}`}
-          onClick={() => setSelectionMode((v) => !v)}
-          aria-label={selectionMode ? 'Salir del modo selección' : 'Modo selección de texto'}
-          title={selectionMode ? 'Salir del modo selección' : 'Seleccionar texto'}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M6 4h3M15 4h3M4 6V4h2M18 4h2v2M4 18v2h2M18 20h2v-2M9 20H6M6 9V6M18 9V6M14 11v8M11 11h6"/>
-          </svg>
-        </button>
+        {!isNative && (
+          <button className={`${styles.back} ${selectionMode ? styles.backActive : ''}`}
+            onClick={() => setSelectionMode((v) => !v)}
+            aria-label={selectionMode ? 'Salir del modo selección' : 'Modo selección de texto'}
+            title={selectionMode ? 'Salir del modo selección' : 'Seleccionar texto'}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M6 4h3M15 4h3M4 6V4h2M18 4h2v2M4 18v2h2M18 20h2v-2M9 20H6M6 9V6M18 9V6M14 11v8M11 11h6"/>
+            </svg>
+          </button>
+        )}
         <FullscreenButton className={styles.back} isFullscreen={isFullscreen} onToggle={toggleFullscreen} hint="F" />
       </header>
       <div className={styles.viewport} ref={containerRef}>
         {loading && <div className={styles.loading}>Cargando libro…</div>}
         {error && <div className={styles.loading} style={{ color: '#b00020' }}>{error}</div>}
-        <button className={`${styles.navBtn} ${styles.navPrev} ${selectionMode ? styles.navPassthrough : ''}`}
-          aria-label={leftSideAdvances ? 'Siguiente' : 'Anterior'}
-          onClick={onLeftSide}>‹</button>
-        <button className={`${styles.navBtn} ${styles.navCenter} ${selectionMode ? styles.navPassthrough : ''}`}
-          aria-label={selectionMode ? 'Salir del modo selección' : 'Activar selección de texto'}
-          onClick={() => setSelectionMode((v) => !v)} />
-        <button className={`${styles.navBtn} ${styles.navNext} ${selectionMode ? styles.navPassthrough : ''}`}
-          aria-label={leftSideAdvances ? 'Anterior' : 'Siguiente'}
-          onClick={onRightSide}>›</button>
+        {!isNative && (
+          <>
+            <button className={`${styles.navBtn} ${styles.navPrev} ${selectionMode ? styles.navPassthrough : ''}`}
+              aria-label={leftSideAdvances ? 'Siguiente' : 'Anterior'}
+              onClick={onLeftSide}>‹</button>
+            <button className={`${styles.navBtn} ${styles.navCenter} ${selectionMode ? styles.navPassthrough : ''}`}
+              aria-label={selectionMode ? 'Salir del modo selección' : 'Activar selección de texto'}
+              onClick={() => setSelectionMode((v) => !v)} />
+            <button className={`${styles.navBtn} ${styles.navNext} ${selectionMode ? styles.navPassthrough : ''}`}
+              aria-label={leftSideAdvances ? 'Anterior' : 'Siguiente'}
+              onClick={onRightSide}>›</button>
+          </>
+        )}
       </div>
       {selectionMode && (
         <div className={styles.selectionBanner} role="status">
