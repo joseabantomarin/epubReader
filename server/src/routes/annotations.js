@@ -13,36 +13,41 @@ export function createAnnotationsRouter(db) {
     return row;
   }
 
+  function rowToApi(r) {
+    return {
+      id: r.id, cfi: r.cfi, text: r.text, note: r.note, color: r.color,
+      chapter: r.chapter, page: r.page,
+      createdAt: r.created_at, updatedAt: r.updated_at,
+    };
+  }
+
   r.get('/:id/annotations', (req, res) => {
     const book = ownedBook(req, res);
     if (!book) return;
     const rows = db.prepare(`
-      SELECT id, cfi, text, note, color, created_at, updated_at
+      SELECT id, cfi, text, note, color, chapter, page, created_at, updated_at
       FROM annotations WHERE book_id = ?
       ORDER BY id ASC
     `).all(book.id);
-    res.json(rows.map(r => ({
-      id: r.id, cfi: r.cfi, text: r.text, note: r.note, color: r.color,
-      createdAt: r.created_at, updatedAt: r.updated_at,
-    })));
+    res.json(rows.map(rowToApi));
   });
 
   r.post('/:id/annotations', (req, res) => {
-    const { cfi, text = '', note = '', color = '#ffd400' } = req.body || {};
+    const { cfi, text = '', note = '', color = '#ffd400', chapter = null, page = null } = req.body || {};
     if (typeof cfi !== 'string' || !cfi.trim()) return res.status(400).json({ error: 'invalid_cfi' });
     const book = ownedBook(req, res);
     if (!book) return;
+    const pageVal = Number.isInteger(page) ? page : null;
     const result = db.prepare(`
-      INSERT INTO annotations (book_id, user_id, cfi, text, note, color)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(book.id, req.user.sub, cfi, String(text || ''), String(note || ''), String(color || '#ffd400'));
+      INSERT INTO annotations (book_id, user_id, cfi, text, note, color, chapter, page)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(book.id, req.user.sub, cfi, String(text || ''), String(note || ''),
+           String(color || '#ffd400'),
+           chapter ? String(chapter) : null, pageVal);
     const row = db.prepare(`
-      SELECT id, cfi, text, note, color, created_at, updated_at FROM annotations WHERE id = ?
+      SELECT id, cfi, text, note, color, chapter, page, created_at, updated_at FROM annotations WHERE id = ?
     `).get(result.lastInsertRowid);
-    res.json({
-      id: row.id, cfi: row.cfi, text: row.text, note: row.note, color: row.color,
-      createdAt: row.created_at, updatedAt: row.updated_at,
-    });
+    res.json(rowToApi(row));
   });
 
   r.patch('/:id/annotations/:annId', (req, res) => {

@@ -64,10 +64,10 @@ export const api = {
       body: totalPages != null ? { cfi, percentage, totalPages } : { cfi, percentage },
     }),
   listAnnotations: (bookId) => call(`/api/books/${bookId}/annotations`),
-  createAnnotation: (bookId, { cfi, text, note, color }) =>
+  createAnnotation: (bookId, { cfi, text, note, color, chapter, page }) =>
     call(`/api/books/${bookId}/annotations`, {
       method: 'POST',
-      body: { cfi, text, note, color },
+      body: { cfi, text, note, color, chapter, page },
     }),
   updateAnnotation: (bookId, annId, patch) =>
     call(`/api/books/${bookId}/annotations/${annId}`, { method: 'PATCH', body: patch }),

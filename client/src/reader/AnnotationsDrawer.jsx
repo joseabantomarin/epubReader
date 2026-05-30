@@ -12,14 +12,18 @@ export default function AnnotationsDrawer({ open, annotations, onJump, onClose }
         <p className={styles.drawerEmpty}>Aún no tienes subrayados en este libro.</p>
       ) : (
         <ul className={styles.drawerList}>
-          {annotations.map(a => (
-            <li key={a.id} className={styles.drawerItem} onClick={() => onJump(a)}>
-              <p className={styles.drawerSnippet} style={{ borderLeftColor: a.color || '#ffd400' }}>
-                {a.text || '(sin texto)'}
-              </p>
-              {a.note && <p className={styles.drawerNote}>{a.note}</p>}
-            </li>
-          ))}
+          {annotations.map(a => {
+            const meta = [a.chapter, a.page ? `pág ${a.page}` : null].filter(Boolean).join(' · ');
+            return (
+              <li key={a.id} className={styles.drawerItem} onClick={() => onJump(a)}>
+                <p className={styles.drawerSnippet} style={{ borderLeftColor: a.color || '#ffd400' }}>
+                  {a.text || '(sin texto)'}
+                </p>
+                {a.note && <p className={styles.drawerNote}>{a.note}</p>}
+                {meta && <p className={styles.drawerMeta}>{meta}</p>}
+              </li>
+            );
+          })}
         </ul>
       )}
     </aside>

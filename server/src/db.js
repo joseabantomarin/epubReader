@@ -41,6 +41,8 @@ CREATE TABLE IF NOT EXISTS annotations (
   text          TEXT    NOT NULL DEFAULT '',
   note          TEXT    NOT NULL DEFAULT '',
   color         TEXT    NOT NULL DEFAULT '#ffd400',
+  chapter       TEXT,
+  page          INTEGER,
   created_at    TEXT    DEFAULT CURRENT_TIMESTAMP,
   updated_at    TEXT    DEFAULT CURRENT_TIMESTAMP
 );
@@ -66,6 +68,13 @@ export function openDb(filePath) {
   // Migration: add format column to pre-existing books.
   if (!hasColumn(db, 'books', 'format')) {
     db.exec("ALTER TABLE books ADD COLUMN format TEXT NOT NULL DEFAULT 'epub'");
+  }
+  // Migration: chapter/page snapshot fields on annotations.
+  if (!hasColumn(db, 'annotations', 'chapter')) {
+    db.exec("ALTER TABLE annotations ADD COLUMN chapter TEXT");
+  }
+  if (!hasColumn(db, 'annotations', 'page')) {
+    db.exec("ALTER TABLE annotations ADD COLUMN page INTEGER");
   }
   return db;
 }

@@ -378,6 +378,7 @@ export default function ReaderPage() {
     try {
       const ann = await api.createAnnotation(bookId, {
         cfi: selection.cfi, text: selection.text, note: '', color: COLOR_HIGHLIGHT,
+        chapter: chapter || null, page: page ?? null,
       });
       setAnnotations((prev) => [...prev, ann]);
       try { await viewRef.current?.addAnnotation({ value: ann.cfi, color: ann.color }); } catch {}
@@ -408,6 +409,7 @@ export default function ReaderPage() {
       } else {
         const ann = await api.createAnnotation(bookId, {
           cfi: noteFor.cfi, text: noteFor.text, note, color,
+          chapter: chapter || null, page: page ?? null,
         });
         setAnnotations((prev) => [...prev, ann]);
         try { await viewRef.current?.addAnnotation({ value: ann.cfi, color: ann.color }); } catch {}
@@ -417,13 +419,23 @@ export default function ReaderPage() {
     clearSelection();
   };
 
+  const deleteAnnotationById = async (id, cfi) => {
+    if (!id) return;
+    try {
+      await api.deleteAnnotation(bookId, id);
+      try { await viewRef.current?.deleteAnnotation({ value: cfi }); } catch {}
+      setAnnotations((prev) => prev.filter(a => a.id !== id));
+    } catch (e) { console.error('[delete]', e); }
+  };
   const onDelete = async () => {
     if (!selection?.existingId) return;
-    try {
-      await api.deleteAnnotation(bookId, selection.existingId);
-      try { await viewRef.current?.deleteAnnotation({ value: selection.cfi }); } catch {}
-      setAnnotations((prev) => prev.filter(a => a.id !== selection.existingId));
-    } catch (e) { console.error('[delete]', e); }
+    await deleteAnnotationById(selection.existingId, selection.cfi);
+    setNoteFor(null);
+    clearSelection();
+  };
+  const deleteCurrentNote = async () => {
+    if (!noteFor?.id) return;
+    await deleteAnnotationById(noteFor.id, noteFor.cfi);
     setNoteFor(null);
     clearSelection();
   };
@@ -458,9 +470,16 @@ export default function ReaderPage() {
     }
   };
 
-  const jumpToAnnotation = async (a) => {
+  // From the drawer: open the note modal for this annotation. The modal has
+  // its own "Ir al pasaje" button if the user actually wants to jump there.
+  const pickAnnotation = (a) => {
     setAnnotationsOpen(false);
-    try { await viewRef.current?.goTo(a.cfi); } catch {}
+    setNoteFor({ id: a.id, text: a.text, cfi: a.cfi, note: a.note || '' });
+  };
+  const jumpToCurrentNote = async () => {
+    if (!noteFor?.cfi) return;
+    setNoteFor(null);
+    try { await viewRef.current?.goTo(noteFor.cfi); } catch {}
   };
 
   const goToChapter = (href) => {
@@ -575,12 +594,13 @@ export default function ReaderPage() {
         initialNote={noteFor?.note || ''}
         onSave={saveNote}
         onClose={() => { setNoteFor(null); clearSelection(); }}
-        onDelete={noteFor?.id ? onDelete : null}
+        onDelete={noteFor?.id ? deleteCurrentNote : null}
+        onJump={noteFor?.id ? jumpToCurrentNote : null}
       />
       <AnnotationsDrawer
         open={annotationsOpen}
         annotations={annotations}
-        onJump={jumpToAnnotation}
+        onJump={pickAnnotation}
         onClose={() => setAnnotationsOpen(false)}
       />
     </main>

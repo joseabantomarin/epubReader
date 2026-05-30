@@ -129,4 +129,5 @@
   font-size: 14px;
 }
 .drawerNote { color: #555; font-size: 13px; margin: 4px 0 0; }
+.drawerMeta { color: #888; font-size: 11px; margin: 6px 0 0; font-style: italic; }
 .drawerEmpty { padding: 24px 14px; color: #888; text-align: center; }

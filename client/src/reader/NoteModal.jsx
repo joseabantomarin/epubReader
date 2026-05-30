@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import styles from './annotations.module.css';
 
-export default function NoteModal({ open, snippet, initialNote = '', onSave, onClose, onDelete }) {
+export default function NoteModal({ open, snippet, initialNote = '', onSave, onClose, onDelete, onJump }) {
   const [text, setText] = useState(initialNote);
   useEffect(() => { if (open) setText(initialNote); }, [open, initialNote]);
   if (!open) return null;
@@ -24,6 +24,7 @@ export default function NoteModal({ open, snippet, initialNote = '', onSave, onC
         </div>
         <footer className={styles.modalFooter}>
           {onDelete && <button className={styles.btnDanger} onClick={onDelete}>Eliminar subrayado</button>}
+          {onJump && <button className={styles.btnSecondary} onClick={onJump}>Ir al pasaje</button>}
           <button className={styles.btnSecondary} onClick={onClose}>Cancelar</button>
           <button className={styles.btnPrimary} onClick={() => onSave(text)}>Guardar</button>
         </footer>
