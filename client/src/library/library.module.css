@@ -212,3 +212,14 @@
 .starOff { color: #c9ccd4; }
 .starBtn { background: none; border: none; padding: 0 1px; cursor: pointer; font-size: 0.95rem; line-height: 1; }
 .ratingMeta { font-size: 0.72rem; color: #6b7280; }
+
+.sharedBadge {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  background: rgba(16, 32, 96, 0.85);
+  color: #fff;
+  border-radius: 6px;
+  padding: 1px 5px;
+  font-size: 0.8rem;
+}
