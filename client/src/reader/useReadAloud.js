@@ -30,6 +30,9 @@ export function useReadAloud({ getView, lang }) {
   const runningRef = useRef(false);
   const mountedRef = useRef(true);
   const wakeLockRef = useRef(null);
+  // Resolver for the in-flight speak() promise, so stop() can unblock the read
+  // loop even if the engine's own promise never settles after being stopped.
+  const pendingResolveRef = useRef(null);
 
   // Web: keep the screen awake during reading so it doesn't auto-sleep (which
   // suspends the Web Speech API). Re-acquired when the tab becomes visible
@@ -48,6 +51,7 @@ export function useReadAloud({ getView, lang }) {
     stopRef.current = true;
     if (IS_NATIVE) { try { TextToSpeech.stop(); } catch {} }
     else { try { window.speechSynthesis.cancel(); } catch {} }
+    pendingResolveRef.current?.(); // unblock the awaiting speak() so the loop exits
     setReading(false);
   }, []);
 
@@ -69,11 +73,18 @@ export function useReadAloud({ getView, lang }) {
 
   // Native: hand the text to the OS TextToSpeech engine, which resolves when
   // done and has no length/gesture limits.
-  const speakNative = useCallback(async (text) => {
-    try {
-      await TextToSpeech.speak({ text, lang: lang || 'es-ES', rate: 1.0 });
-    } catch { /* missing voice/engine — skip this block */ }
-  }, [lang]);
+  const speakNative = useCallback((text) => new Promise((resolve) => {
+    let settled = false;
+    const done = () => {
+      if (settled) return;
+      settled = true;
+      if (pendingResolveRef.current === done) pendingResolveRef.current = null;
+      resolve();
+    };
+    pendingResolveRef.current = done;
+    // resolve on success OR error (missing voice/engine) so the loop never hangs
+    TextToSpeech.speak({ text, lang: lang || 'es-ES', rate: 1.0 }).then(done, done);
+  }), [lang]);
 
   // Web: Web Speech API with a pause/resume keep-alive (Chromium stops
   // utterances longer than ~15s).
@@ -85,9 +96,17 @@ export function useReadAloud({ getView, lang }) {
     const voice = prefix ? voices.find(v => v.lang?.toLowerCase().startsWith(prefix)) : null;
     if (voice) u.voice = voice;
     let keepAlive = null;
-    const done = () => { if (keepAlive) { clearInterval(keepAlive); keepAlive = null; } resolve(); };
+    let settled = false;
+    const done = () => {
+      if (settled) return;
+      settled = true;
+      if (keepAlive) { clearInterval(keepAlive); keepAlive = null; }
+      if (pendingResolveRef.current === done) pendingResolveRef.current = null;
+      resolve();
+    };
     u.onend = done;
     u.onerror = done;
+    pendingResolveRef.current = done;
     ss.speak(u);
     keepAlive = setInterval(() => {
       if (!ss.speaking) { if (keepAlive) { clearInterval(keepAlive); keepAlive = null; } return; }
@@ -153,6 +172,7 @@ export function useReadAloud({ getView, lang }) {
     try { wakeLockRef.current?.release?.(); } catch {}
     if (IS_NATIVE) { try { TextToSpeech.stop(); } catch {} }
     else { try { window.speechSynthesis.cancel(); } catch {} }
+    pendingResolveRef.current?.();
   }, []);
 
   return { reading, start, stop };

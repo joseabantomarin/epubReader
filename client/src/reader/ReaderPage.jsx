@@ -31,6 +31,7 @@ function loadFoliate() {
 
 const COLOR_HIGHLIGHT = '#ffd400';   // plain highlight (no note)
 const COLOR_NOTE      = '#a0e8a0';   // highlight that has a note attached
+const LAST_ACTION_KEY = 'epubreader.lastHeaderAction';  // remembers the collapsed icon
 
 function colorFor(note) {
   return (note && note.trim()) ? COLOR_NOTE : COLOR_HIGHLIGHT;
@@ -68,6 +69,11 @@ export default function ReaderPage() {
   const [error, setError] = useState(null);
   const [toc, setToc] = useState([]);
   const [tocOpen, setTocOpen] = useState(false);
+  // Mobile: the header actions (except read-aloud) collapse behind a toggle.
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const [lastAction, setLastAction] = useState(() => {
+    try { return localStorage.getItem(LAST_ACTION_KEY); } catch { return null; }
+  });
   const [chapter, setChapter] = useState('');
   const [isFullscreen, toggleFullscreen] = useFullscreen();
   const [handedness] = useState(() => loadSettings().handedness);
@@ -159,6 +165,9 @@ export default function ReaderPage() {
           docsRef.current.set(index, { doc, iframe: doc.defaultView?.frameElement || null });
 
           const onSelectionChange = () => {
+            // While reading aloud, foliate highlights (selects) each spoken
+            // block — don't pop the selection menu for that.
+            if (readingRef.current) return;
             const sel = doc.getSelection();
             if (!sel || sel.isCollapsed || sel.rangeCount === 0) {
               setSelection((prev) => (prev?.existingId ? prev : null));
@@ -585,6 +594,25 @@ export default function ReaderPage() {
     setReadDialogOpen(true);
   }, [reading, stopReadAloud]);
 
+  // Remember the last collapsible action used (drives the collapsed icon) and
+  // close the expanded cluster so the title regains its space.
+  const recordAction = useCallback((id) => {
+    setLastAction(id);
+    try { localStorage.setItem(LAST_ACTION_KEY, id); } catch {}
+    setActionsOpen(false);
+  }, []);
+
+  // Collapsible actions present for this session, in display order.
+  const availableActions = [
+    toc.length > 0 && 'toc',
+    !isShared && 'annotations',
+    !isNative && !isShared && 'selection',
+    !isNative && 'fullscreen',
+  ].filter(Boolean);
+  const indicatorAction = availableActions.includes(lastAction)
+    ? lastAction
+    : availableActions[0];
+
   // Web only: turning the screen off (or backgrounding the tab) suspends the
   // Web Speech API. Stop reading and, on return, hint that the app keeps
   // playing with the screen off. (Native TTS keeps going, so this is skipped.)
@@ -613,10 +641,7 @@ export default function ReaderPage() {
           <h1 className={styles.title}>{title}</h1>
           {author && <p className={styles.author}>{author}</p>}
         </div>
-        {toc.length > 0 && (
-          <button className={styles.back} onClick={() => setTocOpen(true)}
-            aria-label="Índice de capítulos" title="Índice de capítulos">☰</button>
-        )}
+        {/* Read-aloud stays visible at all sizes */}
         <button className={`${styles.back} ${reading ? styles.backActive : ''}`}
           onClick={onSpeakerClick}
           aria-label={reading ? 'Detener lectura' : 'Leer en voz alta'}
@@ -629,22 +654,42 @@ export default function ReaderPage() {
             </svg>
           )}
         </button>
-        {!isShared && (
-          <button className={styles.back} onClick={() => setAnnotationsOpen(true)}
-            aria-label="Subrayados" title="Subrayados">★</button>
-        )}
-        {!isNative && !isShared && (
-          <button className={`${styles.back} ${selectionMode ? styles.backActive : ''}`}
-            onClick={() => setSelectionMode((v) => !v)}
-            aria-label={selectionMode ? 'Salir del modo selección' : 'Modo selección de texto'}
-            title={selectionMode ? 'Salir del modo selección' : 'Seleccionar texto'}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M6 4h3M15 4h3M4 6V4h2M18 4h2v2M4 18v2h2M18 20h2v-2M9 20H6M6 9V6M18 9V6M14 11v8M11 11h6"/>
-            </svg>
+        {/* On small screens these collapse behind the toggle; on desktop they show inline */}
+        <div className={styles.collapsible} data-open={actionsOpen ? 'true' : 'false'}>
+          {toc.length > 0 && (
+            <button className={styles.back} onClick={() => { setTocOpen(true); recordAction('toc'); }}
+              aria-label="Índice de capítulos" title="Índice de capítulos">☰</button>
+          )}
+          {!isShared && (
+            <button className={styles.back} onClick={() => { setAnnotationsOpen(true); recordAction('annotations'); }}
+              aria-label="Subrayados" title="Subrayados">★</button>
+          )}
+          {!isNative && !isShared && (
+            <button className={`${styles.back} ${selectionMode ? styles.backActive : ''}`}
+              onClick={() => { setSelectionMode((v) => !v); recordAction('selection'); }}
+              aria-label={selectionMode ? 'Salir del modo selección' : 'Modo selección de texto'}
+              title={selectionMode ? 'Salir del modo selección' : 'Seleccionar texto'}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M6 4h3M15 4h3M4 6V4h2M18 4h2v2M4 18v2h2M18 20h2v-2M9 20H6M6 9V6M18 9V6M14 11v8M11 11h6"/>
+              </svg>
+            </button>
+          )}
+          {!isNative && (
+            <FullscreenButton className={styles.back} isFullscreen={isFullscreen}
+              onToggle={() => { toggleFullscreen(); recordAction('fullscreen'); }} hint="F" />
+          )}
+        </div>
+        {availableActions.length > 0 && (
+          <button className={styles.actionsToggle} data-open={actionsOpen ? 'true' : 'false'}
+            onClick={() => setActionsOpen((v) => !v)}
+            aria-expanded={actionsOpen}
+            aria-label={actionsOpen ? 'Ocultar acciones' : 'Mostrar acciones'}
+            title={actionsOpen ? 'Ocultar acciones' : 'Mostrar acciones'}>
+            <ChevronIcon className={styles.chevron} />
+            {!actionsOpen && (
+              <span className={styles.lastIcon}><ActionIcon action={indicatorAction} /></span>
+            )}
           </button>
-        )}
-        {!isNative && (
-          <FullscreenButton className={styles.back} isFullscreen={isFullscreen} onToggle={toggleFullscreen} hint="F" />
         )}
       </header>
       <div className={styles.viewport} ref={containerRef}>
@@ -699,7 +744,7 @@ export default function ReaderPage() {
 
       {!isShared && (
         <SelectionMenu
-          pos={menuPos}
+          pos={reading ? null : menuPos}
           existingId={selection?.existingId}
           onDictionary={onDictionary}
           onHighlight={onHighlight}
@@ -757,4 +802,37 @@ function TocList({ items, onPick, depth = 0 }) {
       ))}
     </ul>
   );
+}
+
+// Chevron for the collapsed actions toggle (points left when closed).
+function ChevronIcon({ className }) {
+  return (
+    <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M15 18l-6-6 6-6"/>
+    </svg>
+  );
+}
+
+// Icon shown next to the chevron when collapsed — mirrors the last action used.
+function ActionIcon({ action }) {
+  switch (action) {
+    case 'toc':
+      return <span aria-hidden="true">☰</span>;
+    case 'annotations':
+      return <span aria-hidden="true">★</span>;
+    case 'selection':
+      return (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M6 4h3M15 4h3M4 6V4h2M18 4h2v2M4 18v2h2M18 20h2v-2M9 20H6M6 9V6M18 9V6M14 11v8M11 11h6"/>
+        </svg>
+      );
+    case 'fullscreen':
+      return (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/>
+        </svg>
+      );
+    default:
+      return null;
+  }
 }

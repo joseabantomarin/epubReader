@@ -34,7 +34,7 @@ export default function SelectionMenu({
 
   return (
     <div ref={ref} className={styles.menu} style={style} role="menu" onMouseDown={(e) => e.preventDefault()}>
-      <button className={styles.menuBtn} onClick={onDictionary}>Diccionario</button>
+      <button className={styles.menuBtn} onClick={onDictionary}>Dicc.</button>
       {showAI && <button className={styles.menuBtn} onClick={onExplainAI}>IA</button>}
       {!existingId && <button className={styles.menuBtn} onClick={onHighlight}>Subrayar</button>}
       <button className={styles.menuBtn} onClick={onNote}>{existingId ? 'Nota' : 'Nota'}</button>
