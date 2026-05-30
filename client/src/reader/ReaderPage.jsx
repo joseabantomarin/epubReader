@@ -585,6 +585,22 @@ export default function ReaderPage() {
     setReadDialogOpen(true);
   }, [reading, stopReadAloud]);
 
+  // Web only: turning the screen off (or backgrounding the tab) suspends the
+  // Web Speech API. Stop reading and, on return, hint that the app keeps
+  // playing with the screen off. (Native TTS keeps going, so this is skipped.)
+  const [showOffHint, setShowOffHint] = useState(false);
+  useEffect(() => {
+    if (isNative || !reading) return;
+    const onHidden = () => {
+      if (document.visibilityState === 'hidden') {
+        stopReadAloud();
+        setShowOffHint(true);
+      }
+    };
+    document.addEventListener('visibilitychange', onHidden);
+    return () => document.removeEventListener('visibilitychange', onHidden);
+  }, [isNative, reading, stopReadAloud]);
+
   return (
     <main className={styles.page}>
       <header className={styles.header}>
@@ -651,6 +667,12 @@ export default function ReaderPage() {
       {selectionMode && (
         <div className={styles.selectionBanner} role="status">
           Mantén presionado para seleccionar texto. Toca el ícono para salir.
+        </div>
+      )}
+      {showOffHint && (
+        <div className={styles.offHint} role="status">
+          <span>Lectura detenida. Si desea escuchar con el dispositivo Android apagado, descargue la aplicación.</span>
+          <button className={styles.offHintClose} onClick={() => setShowOffHint(false)} aria-label="Cerrar">×</button>
         </div>
       )}
       <footer className={styles.footer}>

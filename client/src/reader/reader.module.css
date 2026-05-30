@@ -92,6 +92,42 @@
   color: white !important;
 }
 
+/* Collapsible header actions */
+.collapsible {
+  display: contents; /* desktop: children lay out inline within the header */
+}
+.actionsToggle {
+  display: none; /* desktop: hidden — every action shows inline */
+  align-items: center;
+  gap: 2px;
+  background: transparent;
+  border: 1px solid var(--border);
+  height: 36px;
+  padding: 0 8px;
+  border-radius: 18px;
+  cursor: pointer;
+  color: inherit;
+}
+.chevron { transition: transform .2s ease; }
+.actionsToggle[data-open='true'] .chevron { transform: rotate(180deg); }
+.lastIcon {
+  display: inline-grid;
+  place-items: center;
+  font-size: 16px;
+  line-height: 1;
+}
+
+@media (max-width: 639px) {
+  .header { gap: 6px; }
+  .collapsible { display: none; }
+  .collapsible[data-open='true'] {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .actionsToggle { display: inline-flex; }
+}
+
 .selectionBanner {
   background: var(--accent);
   color: white;
@@ -99,6 +135,27 @@
   font-size: 12px;
   padding: 6px 14px;
   line-height: 1.3;
+}
+
+.offHint {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #102060;
+  color: #fff;
+  font-size: 13px;
+  line-height: 1.35;
+  padding: 8px max(14px, env(safe-area-inset-right)) 8px max(14px, env(safe-area-inset-left));
+}
+.offHintClose {
+  flex: none;
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
 }
 
 @media (max-width: 639px) {
