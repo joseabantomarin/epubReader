@@ -205,3 +205,10 @@
   border-top: 1px solid var(--border);
   margin: 48px 0 32px;
 }
+
+.rating { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+.stars { display: inline-flex; gap: 1px; font-size: 0.95rem; line-height: 1; }
+.starOn { color: #f5a623; }
+.starOff { color: #c9ccd4; }
+.starBtn { background: none; border: none; padding: 0 1px; cursor: pointer; font-size: 0.95rem; line-height: 1; }
+.ratingMeta { font-size: 0.72rem; color: #6b7280; }
