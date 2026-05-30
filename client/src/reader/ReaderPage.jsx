@@ -110,6 +110,13 @@ export default function ReaderPage() {
         }
         if (disposed) return;
 
+        // PDFs are rendered by foliate's fixed-layout view, which (unlike the
+        // reflowable EPUB renderer) has no built-in swipe gesture — we add one
+        // below. Detect by the "%PDF-" magic since the File is always named .epub.
+        const head = new Uint8Array(buf.slice(0, 5));
+        const isPdf = head[0] === 0x25 && head[1] === 0x50 && head[2] === 0x44
+          && head[3] === 0x46 && head[4] === 0x2d;
+
         const file = new File([buf], 'book.epub', { type: 'application/epub+zip' });
         if (progress?.percentage != null) setPct(progress.percentage);
         if (progress?.cfi) lastSavedCfiRef.current = progress.cfi;
@@ -169,6 +176,30 @@ export default function ReaderPage() {
           doc.addEventListener('selectionchange', debouncedSelChange);
           doc.addEventListener('touchend', onSelectionChange);
           doc.addEventListener('mouseup', onSelectionChange);
+
+          // PDF page-turn by drag: foliate's fixed-layout renderer doesn't do
+          // this itself, so we detect a quick horizontal swipe on the page doc.
+          if (isPdf) {
+            let sx = 0, sy = 0, st = 0;
+            const onTouchStart = (ev) => {
+              const t = ev.changedTouches?.[0];
+              if (!t) return;
+              sx = t.clientX; sy = t.clientY; st = ev.timeStamp;
+            };
+            const onTouchEnd = (ev) => {
+              const t = ev.changedTouches?.[0];
+              if (!t) return;
+              // Ignore if the user was selecting text rather than swiping.
+              const sel = doc.getSelection();
+              if (sel && !sel.isCollapsed) return;
+              const dx = t.clientX - sx, dy = t.clientY - sy;
+              if (ev.timeStamp - st > 800) return;
+              if (Math.abs(dx) < 45 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+              if (dx < 0) view.next(); else view.prev();
+            };
+            doc.addEventListener('touchstart', onTouchStart, { passive: true });
+            doc.addEventListener('touchend', onTouchEnd, { passive: true });
+          }
         });
 
         await view.open(file);

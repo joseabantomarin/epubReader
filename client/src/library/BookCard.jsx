@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import styles from './library.module.css';
 import { bookCoverUrl, sharedCoverUrl, getToken } from '../lib/api.js';
 import { getCover, putCover } from '../lib/offlineCache.js';
@@ -11,9 +11,47 @@ function hashColor(s) {
   return `hsl(${h % 360} 50% 45%)`;
 }
 
-export default function BookCard({ book, selectionMode, selected, onActivate, shared = false, onRate, onClear }) {
-  const handleClick = () => onActivate(book);
+export default function BookCard({ book, selectionMode, selected, onActivate, shared = false, onRate, onClear, onGestureSelect }) {
   const [coverSrc, setCoverSrc] = useState(null);
+
+  // Gesture handling: long-press (touch) or double-click (mouse) enters
+  // selection mode via onGestureSelect, while a plain click/tap still opens
+  // the book. On mouse we defer the open briefly to detect a double-click.
+  const clickTimer = useRef(null);
+  const pressTimer = useRef(null);
+  const suppressClick = useRef(false);
+  const isTouch = useRef(false);
+
+  useEffect(() => () => {
+    clearTimeout(clickTimer.current);
+    clearTimeout(pressTimer.current);
+  }, []);
+
+  const open = () => onActivate(book);
+
+  const handleClick = () => {
+    if (suppressClick.current) { suppressClick.current = false; return; }
+    // In selection mode (or without a gesture handler) a click acts immediately.
+    if (selectionMode || !onGestureSelect || isTouch.current) { open(); return; }
+    if (clickTimer.current) return;
+    clickTimer.current = setTimeout(() => { clickTimer.current = null; open(); }, 220);
+  };
+
+  const handleDoubleClick = () => {
+    if (clickTimer.current) { clearTimeout(clickTimer.current); clickTimer.current = null; }
+    onGestureSelect?.();
+  };
+
+  const onTouchStart = () => {
+    isTouch.current = true;
+    if (selectionMode || !onGestureSelect) return;
+    pressTimer.current = setTimeout(() => {
+      pressTimer.current = null;
+      suppressClick.current = true; // swallow the click that follows touchend
+      onGestureSelect?.();
+    }, 500);
+  };
+  const endPress = () => { clearTimeout(pressTimer.current); pressTimer.current = null; };
 
   // Always display the cover from a blob URL — `<img src>` to a relative
   // path doesn't work inside Capacitor (the webview origin is localhost),
@@ -50,6 +88,11 @@ export default function BookCard({ book, selectionMode, selected, onActivate, sh
     <div
       className={`${styles.card} ${selected ? styles.selected : ''}`}
       onClick={handleClick}
+      onDoubleClick={onGestureSelect ? handleDoubleClick : undefined}
+      onTouchStart={onGestureSelect ? onTouchStart : undefined}
+      onTouchEnd={onGestureSelect ? endPress : undefined}
+      onTouchMove={onGestureSelect ? endPress : undefined}
+      onContextMenu={onGestureSelect ? (e) => e.preventDefault() : undefined}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleClick(); } }}

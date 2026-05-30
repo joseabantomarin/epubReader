@@ -145,6 +145,13 @@ export default function LibraryPage() {
     });
   };
 
+  // Long-press (touch) or double-click (mouse) on a cover enters selection
+  // mode and marks that book, without opening it.
+  const selectFromGesture = (id) => {
+    setSelectionMode(true);
+    setSelectedIds((prev) => new Set(prev).add(id));
+  };
+
   const deleteSelected = async () => {
     const ids = [...selectedIds];
     if (ids.length === 0) return;
@@ -271,6 +278,7 @@ export default function LibraryPage() {
                 {filtered.map((b) => (
                   <BookCard key={b.id} book={b} selectionMode={selectionMode}
                     selected={selectedIds.has(b.id)} onActivate={onActivate}
+                    onGestureSelect={() => selectFromGesture(b.id)}
                     onRate={(s) => rateBook(b.id, s)} onClear={() => clearBookRating(b.id)} />
                 ))}
               </div>
