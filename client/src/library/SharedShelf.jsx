@@ -11,12 +11,16 @@ export default function SharedShelf({ books, canRate, onOpen }) {
   const merged = (b) => ({ ...b, ...(ratings[b.id] || {}) });
 
   const rate = async (id, stars) => {
-    try { setRatings((r) => ({ ...r, [id]: await api.rateShared(id, stars) })); }
-    catch (e) { console.error('[rate]', e); }
+    try {
+      const result = await api.rateShared(id, stars);
+      setRatings((r) => ({ ...r, [id]: result }));
+    } catch (e) { console.error('[rate]', e); }
   };
   const clear = async (id) => {
-    try { setRatings((r) => ({ ...r, [id]: await api.unrateShared(id) })); }
-    catch (e) { console.error('[unrate]', e); }
+    try {
+      const result = await api.unrateShared(id);
+      setRatings((r) => ({ ...r, [id]: result }));
+    } catch (e) { console.error('[unrate]', e); }
   };
 
   if (books.length === 0) {
