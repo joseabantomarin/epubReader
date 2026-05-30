@@ -571,8 +571,20 @@ export default function ReaderPage() {
     if (pos && !isShared) {
       try { await api.putProgress(bookId, pos.cfi, pos.fraction); } catch {}
     }
+    try { localStorage.removeItem('epubreader.readerPath'); } catch {}  // intentional exit: don't auto-restore
     navigate('/');
   };
+
+  // Android can reload the WebView to '/' when the screen is off; remember this
+  // book's route so App can reopen it on reload. Cleared on an intentional Back.
+  useEffect(() => {
+    if (!isNative) return;
+    const path = window.location.pathname + window.location.search;
+    const save = () => { try { localStorage.setItem('epubreader.readerPath', JSON.stringify({ path, t: Date.now() })); } catch {} };
+    save();
+    const id = setInterval(save, 20000);
+    return () => clearInterval(id);
+  }, [isNative]);
 
   const getView = useCallback(() => viewRef.current, []);
 

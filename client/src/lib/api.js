@@ -31,9 +31,9 @@ async function call(path, { method = 'GET', body, formData, headers = {} } = {})
   });
   if (res.status === 401) {
     clearAuth();
-    // Login is offered inline on the main page (guest mode), so an expired
-    // token just drops the user back to '/' instead of a dedicated /login.
-    if (location.pathname !== '/') location.assign('/');
+    // No hard redirect: a 401 just clears the token and throws so callers can
+    // handle it. (A forced location.assign('/') used to bounce the reader back
+    // to the library on Android when a background request 401'd after resume.)
     throw new Error('unauthorized');
   }
   if (!res.ok) {
