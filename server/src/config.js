@@ -20,6 +20,9 @@ export const config = {
   // Comma-separated emails that may censor shared books.
   adminEmails: (process.env.ADMIN_EMAILS || '')
     .split(',').map(s => s.trim().toLowerCase()).filter(Boolean),
+  // Groq (AI explain). Optional — if no key, the AI endpoint is disabled.
+  groqApiKey: process.env.GROQ_API_KEY || '',
+  groqModel: process.env.GROQ_MODEL || 'llama-3.1-8b-instant',
 };
 
 export function isAdminEmail(email) {

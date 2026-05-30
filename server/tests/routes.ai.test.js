@@ -1,0 +1,62 @@
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import request from 'supertest';
+import express from 'express';
+import { makeDb, insertUser, authHeader } from './helpers.js';
+import { createAIRouter } from '../src/routes/ai.js';
+import { config } from '../src/config.js';
+
+function app(db) {
+  const a = express();
+  a.use(express.json());
+  a.use('/api/ai', createAIRouter(db));
+  return a;
+}
+
+describe('POST /api/ai/explain', () => {
+  let db, user, a;
+  beforeEach(() => {
+    db = makeDb();
+    user = insertUser(db, { email: 'u@x.com' });
+    a = app(db);
+    config.groqApiKey = '';
+  });
+  afterEach(() => { config.groqApiKey = ''; vi.restoreAllMocks(); });
+
+  it('401 without auth', async () => {
+    config.groqApiKey = 'k';
+    const res = await request(a).post('/api/ai/explain').send({ text: 'hola' });
+    expect(res.status).toBe(401);
+  });
+
+  it('503 when no API key is configured', async () => {
+    const res = await request(a).post('/api/ai/explain').set(authHeader(user)).send({ text: 'hola' });
+    expect(res.status).toBe(503);
+    expect(res.body).toMatchObject({ error: 'ai_disabled' });
+  });
+
+  it('400 when text is missing/empty', async () => {
+    config.groqApiKey = 'k';
+    const res = await request(a).post('/api/ai/explain').set(authHeader(user)).send({ text: '   ' });
+    expect(res.status).toBe(400);
+  });
+
+  it('returns the explanation from Groq', async () => {
+    config.groqApiKey = 'k';
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ choices: [{ message: { content: 'Explicación simple.' } }] }),
+    });
+    const res = await request(a).post('/api/ai/explain').set(authHeader(user)).send({ text: 'un pasaje' });
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ explanation: 'Explicación simple.' });
+    expect(global.fetch).toHaveBeenCalledOnce();
+  });
+
+  it('502 when Groq fails', async () => {
+    config.groqApiKey = 'k';
+    global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 500, text: async () => 'boom' });
+    const res = await request(a).post('/api/ai/explain').set(authHeader(user)).send({ text: 'x' });
+    expect(res.status).toBe(502);
+    expect(res.body).toMatchObject({ error: 'ai_failed' });
+  });
+});
