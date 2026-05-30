@@ -99,7 +99,7 @@ export default function BookCard({ book, selectionMode, selected, onActivate, sh
     >
       <div className={styles.cover} style={{ background: hashColor(book.title || 'x') }}>
         {coverSrc ? (
-          <img src={coverSrc} alt="" loading="lazy" />
+          <img src={coverSrc} alt="" loading="lazy" draggable={false} />
         ) : (
           <div className={styles.coverFallback}>
             <strong>{book.title}</strong>
