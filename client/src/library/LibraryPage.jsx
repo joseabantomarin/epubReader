@@ -36,8 +36,10 @@ export default function LibraryPage() {
   const [offline, setOffline] = useState(false);
   const [shared, setShared] = useState([]);
   const isGuest = !user;
-  // Logged-in users get the pitch collapsed to just the tagline; guests see it open.
+  // Pitch: expanded for guests, collapsed once logged in. Re-synced on
+  // login/logout so logging in within the same session also collapses it.
   const [introOpen, setIntroOpen] = useState(isGuest);
+  useEffect(() => { setIntroOpen(isGuest); }, [isGuest]);
 
   const reload = useCallback(async ({ silent = false } = {}) => {
     if (!silent) setLoading(true);
