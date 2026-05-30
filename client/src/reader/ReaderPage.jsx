@@ -26,6 +26,13 @@ function loadFoliate() {
   return foliateLoaded;
 }
 
+const COLOR_HIGHLIGHT = '#ffd400';   // plain highlight (no note)
+const COLOR_NOTE      = '#a0e8a0';   // highlight that has a note attached
+
+function colorFor(note) {
+  return (note && note.trim()) ? COLOR_NOTE : COLOR_HIGHLIGHT;
+}
+
 // Convert a DOM Range inside a chapter iframe to viewport coordinates.
 // The Range's getBoundingClientRect is iframe-relative — add the iframe's
 // own offset to get fixed-position coords for menu placement.
@@ -370,7 +377,7 @@ export default function ReaderPage() {
     if (!selection?.cfi) { setSelection(null); return; }
     try {
       const ann = await api.createAnnotation(bookId, {
-        cfi: selection.cfi, text: selection.text, note: '', color: '#ffd400',
+        cfi: selection.cfi, text: selection.text, note: '', color: COLOR_HIGHLIGHT,
       });
       setAnnotations((prev) => [...prev, ann]);
       try { await viewRef.current?.addAnnotation({ value: ann.cfi, color: ann.color }); } catch {}
@@ -388,13 +395,19 @@ export default function ReaderPage() {
 
   const saveNote = async (note) => {
     if (!noteFor) return;
+    const color = colorFor(note);
     try {
       if (noteFor.id) {
-        await api.updateAnnotation(bookId, noteFor.id, { note });
-        setAnnotations((prev) => prev.map(a => a.id === noteFor.id ? { ...a, note } : a));
+        await api.updateAnnotation(bookId, noteFor.id, { note, color });
+        setAnnotations((prev) => prev.map(a => a.id === noteFor.id ? { ...a, note, color } : a));
+        // Repaint the highlight with the new color (foliate doesn't update in place).
+        try {
+          await viewRef.current?.deleteAnnotation({ value: noteFor.cfi });
+          await viewRef.current?.addAnnotation({ value: noteFor.cfi, color });
+        } catch {}
       } else {
         const ann = await api.createAnnotation(bookId, {
-          cfi: noteFor.cfi, text: noteFor.text, note, color: '#ffd400',
+          cfi: noteFor.cfi, text: noteFor.text, note, color,
         });
         setAnnotations((prev) => [...prev, ann]);
         try { await viewRef.current?.addAnnotation({ value: ann.cfi, color: ann.color }); } catch {}
