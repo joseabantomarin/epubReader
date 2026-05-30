@@ -565,14 +565,15 @@ export default function ReaderPage() {
 
   // Best-effort: text of the most recently loaded section document. The view
   // advances once per utterance, so successive calls cover successive pages.
-  function getPageText() {
+  const getPageText = useCallback(() => {
     const entries = [...docsRef.current.values()];
     const doc = entries[entries.length - 1]?.doc;
     return doc?.body?.innerText?.trim() || '';
-  }
+  }, []);
+  const getView = useCallback(() => viewRef.current, []);
 
   const { reading, start: startReadAloud, stop: stopReadAloud } =
-    useReadAloud({ getView: () => viewRef.current, getPageText, lang: bookLang });
+    useReadAloud({ getView, getPageText, lang: bookLang });
 
   const onSpeakerClick = useCallback(() => {
     if (reading) { stopReadAloud(); return; }
