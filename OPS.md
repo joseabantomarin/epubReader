@@ -18,7 +18,49 @@ git push                                # desde local
 ssh administrator@147.93.176.249 'cd ~/epubReader && git pull && cd client && npm run build'
 ```
 
-(Express sirve `client/dist` directo, no hace falta reiniciar nada.)
+(Express sirve `client/dist` directo — para cambios **solo de frontend** no hace falta reiniciar nada.)
+
+### Cambios de backend → reiniciar el servicio (lo hace Jose)
+
+El server corre como el servicio systemd **`epubreader.service`** (`User=administrator`,
+`WorkingDirectory=.../server`, `ExecStart=/usr/bin/node src/index.js`, `Restart=on-failure`,
+puerto `3100`, nginx hace proxy a `127.0.0.1:3100`). El `.env` del server vive en
+`server/.env`.
+
+Cualquier cambio de **backend** (rutas nuevas, middleware, migración de DB en `db.js`)
+necesita reiniciar el proceso. **Solo Jose puede hacerlo** — requiere su contraseña:
+
+```bash
+sudo systemctl restart epubreader
+```
+
+Notas para quien automatice (Claude/CI):
+- **No tienes permiso para reiniciar.** `sudo systemctl restart` y `systemctl restart`
+  fallan con *"Interactive authentication required"* (ver sección "Sudo" abajo: el
+  `NOPASSWD` que decía esta nota NO está activo). Hay que pedirle a Jose que ejecute el
+  comando de arriba.
+- **NUNCA reinicies matando el PID.** El unit es `Restart=on-failure`: un `kill`/SIGTERM
+  es apagado limpio → systemd NO lo relevanta → 502 Bad Gateway. (Ya pasó una vez.)
+- Sin reiniciar, el proceso viejo sigue vivo y las rutas nuevas caen al catch-all
+  `app.get('*')` devolviendo el `index.html` del SPA (**HTTP 200 con HTML**, no 404) —
+  fácil de confundir con "funciona".
+- Las migraciones de DB corren solas al arrancar (`openDb()`, patrón `hasColumn` +
+  `ALTER TABLE`, idempotentes). Antes de una migración:
+  `cp server/data/library.db server/data/library.db.bak-<motivo>`.
+- Verificar tras el restart: `curl https://mislibros.openlinks.app/api/shared` debe
+  devolver **JSON** (`[]` o lista), NO HTML; y `/api/health` → 200.
+
+**Restauración de emergencia sin sudo** (si el servicio quedó caído y Jose no está):
+arrancar a mano replicando el unit — restaura el servicio pero **fuera de systemd**
+(no sobrevive reboot ni se auto-reinicia); Jose debe luego hacer `sudo systemctl restart
+epubreader` para devolverlo a systemd (mata antes el proceso manual o chocará el puerto 3100):
+```bash
+ssh administrator@147.93.176.249
+cd /home/administrator/epubReader/server
+set -a; . ./.env; [ -f ./.env.production ] && . ./.env.production; set +a
+export NODE_ENV=production PORT=3100
+nohup /usr/bin/node src/index.js > /tmp/epub-manual.log 2>&1 &
+```
 
 ## Build + publicar APK
 
@@ -61,10 +103,11 @@ mv .env.web.bak .env
 
 ## Sudo en el server
 
-Por ahora hay `NOPASSWD` temporal en `/etc/sudoers.d/90-administrator-nopasswd`. Mantener hasta que el usuario diga lo contrario; entonces:
-```bash
-ssh administrator@147.93.176.249 'sudo rm /etc/sudoers.d/90-administrator-nopasswd'
-```
+`administrator` **requiere contraseña para sudo** (verificado 2026-05-30: `sudo -n true`
+→ *"a password is required"*; `systemctl restart` → *"Interactive authentication
+required"*). No hay regla `NOPASSWD` ni polkit activa. Consecuencia: cualquier acción que
+necesite sudo (reiniciar el servicio, editar el unit, etc.) **la ejecuta Jose a mano** —
+los procesos automatizados no pueden. Ver "Cambios de backend" arriba.
 
 ## Google Sign-In
 
