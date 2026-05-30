@@ -14,29 +14,29 @@ export default function BookCard({ book, selectionMode, selected, onActivate }) 
   const handleClick = () => onActivate(book);
   const [coverSrc, setCoverSrc] = useState(null);
 
-  // Cache-first cover: blob URL from IndexedDB if present, else server URL +
-  // store in background. Survives offline reloads.
+  // Always display the cover from a blob URL — `<img src>` to a relative
+  // path doesn't work inside Capacitor (the webview origin is localhost),
+  // but fetch is intercepted by CapacitorHttp and reaches the real server.
   useEffect(() => {
     if (!book.coverUrl) { setCoverSrc(null); return; }
     let cancelled = false;
     let createdUrl = null;
+    const show = (blob) => {
+      if (cancelled) return;
+      createdUrl = URL.createObjectURL(blob);
+      setCoverSrc(createdUrl);
+    };
     (async () => {
       const cached = await getCover(book.id);
-      if (cached && !cancelled) {
-        createdUrl = URL.createObjectURL(cached);
-        setCoverSrc(createdUrl);
-        return;
-      }
-      const serverUrl = bookCoverUrl(book.id);
-      if (!cancelled) setCoverSrc(serverUrl);
+      if (cached) { show(cached); return; }
       try {
-        const res = await fetch(serverUrl, {
+        const res = await fetch(bookCoverUrl(book.id), {
           headers: { Authorization: `Bearer ${getToken()}` },
         });
-        if (res.ok) {
-          const blob = await res.blob();
-          await putCover(book.id, blob);
-        }
+        if (!res.ok) return;
+        const blob = await res.blob();
+        putCover(book.id, blob).catch(() => {});
+        show(blob);
       } catch { /* offline or other failure — silent */ }
     })();
     return () => {
