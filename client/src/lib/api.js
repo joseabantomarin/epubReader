@@ -31,7 +31,9 @@ async function call(path, { method = 'GET', body, formData, headers = {} } = {})
   });
   if (res.status === 401) {
     clearAuth();
-    if (location.pathname !== '/login') location.assign('/login');
+    // Login is offered inline on the main page (guest mode), so an expired
+    // token just drops the user back to '/' instead of a dedicated /login.
+    if (location.pathname !== '/') location.assign('/');
     throw new Error('unauthorized');
   }
   if (!res.ok) {

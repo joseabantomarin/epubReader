@@ -1,8 +1,7 @@
 import { useEffect } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
 import { AuthProvider } from './auth/AuthContext.jsx';
-import LoginPage from './auth/LoginPage.jsx';
 import LibraryPage from './library/LibraryPage.jsx';
 import ReaderPage from './reader/ReaderPage.jsx';
 import { useNativeBack } from './lib/useNativeBack.js';
@@ -22,10 +21,9 @@ function Routed() {
   }, []);
   return (
     <Routes>
-      <Route path="/login" element={<LoginPage />} />
       <Route path="/" element={<LibraryPage />} />
       <Route path="/read/:bookId" element={<ReaderPage />} />
-      <Route path="*" element={<LoginPage />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }
