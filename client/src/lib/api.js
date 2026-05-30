@@ -57,6 +57,13 @@ export const api = {
     return call('/api/books', { method: 'POST', formData: fd });
   },
   deleteBooks: (ids) => call('/api/books', { method: 'DELETE', body: { ids } }),
+  listShared: () => call('/api/shared'),
+  shareBooks: (ids) => call('/api/books/share', { method: 'POST', body: { ids } }),
+  unshareBooks: (ids) => call('/api/books/unshare', { method: 'POST', body: { ids } }),
+  rateShared: (bookId, stars) =>
+    call(`/api/shared/${bookId}/rating`, { method: 'PUT', body: { stars } }),
+  unrateShared: (bookId) =>
+    call(`/api/shared/${bookId}/rating`, { method: 'DELETE' }),
   getProgress: (bookId) => call(`/api/books/${bookId}/progress`),
   putProgress: (bookId, cfi, percentage, totalPages) =>
     call(`/api/books/${bookId}/progress`, {
@@ -96,4 +103,10 @@ export function bookCoverUrl(bookId) {
   const token = getToken();
   const q = token ? `?_t=${encodeURIComponent(token)}` : '';
   return `${BASE}/api/books/${bookId}/cover${q}`;
+}
+export function sharedFileUrl(bookId) {
+  return `${BASE}/api/shared/${bookId}/file`;
+}
+export function sharedCoverUrl(bookId) {
+  return `${BASE}/api/shared/${bookId}/cover`;
 }
