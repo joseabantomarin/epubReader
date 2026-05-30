@@ -2,10 +2,25 @@ package app.openlinks.mislibros;
 
 import android.view.ActionMode;
 import android.view.KeyEvent;
+import android.webkit.JavascriptInterface;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
-    private boolean volumeKeysHijacked = true;
+    private volatile boolean volumeKeysHijacked = true;
+
+    @Override
+    public void onStart() {
+        super.onStart();
+        // Expose AndroidVolume.setHijack(bool) to JS so the reader can turn the
+        // volume-keys-turn-pages behavior off while text-to-speech is playing
+        // (letting the buttons control the audio volume instead).
+        getBridge().getWebView().addJavascriptInterface(this, "AndroidVolume");
+    }
+
+    @JavascriptInterface
+    public void setHijack(boolean enabled) {
+        volumeKeysHijacked = enabled;
+    }
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {

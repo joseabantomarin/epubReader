@@ -29,6 +29,20 @@ export function useReadAloud({ getView, lang }) {
   const stopRef = useRef(false);
   const runningRef = useRef(false);
   const mountedRef = useRef(true);
+  const wakeLockRef = useRef(null);
+
+  // Web: keep the screen awake during reading so it doesn't auto-sleep (which
+  // suspends the Web Speech API). Re-acquired when the tab becomes visible
+  // again, since the lock is dropped while hidden. (Native uses the OS TTS,
+  // which keeps playing regardless.)
+  const acquireWakeLock = useCallback(async () => {
+    if (IS_NATIVE) return;
+    try { wakeLockRef.current = await navigator.wakeLock?.request('screen'); } catch {}
+  }, []);
+  const releaseWakeLock = useCallback(() => {
+    try { wakeLockRef.current?.release?.(); } catch {}
+    wakeLockRef.current = null;
+  }, []);
 
   const stop = useCallback(() => {
     stopRef.current = true;
@@ -88,6 +102,9 @@ export function useReadAloud({ getView, lang }) {
     runningRef.current = true;
     stopRef.current = false;
     setReading(true);
+    await acquireWakeLock();
+    const onVisible = () => { if (document.visibilityState === 'visible' && runningRef.current) acquireWakeLock(); };
+    document.addEventListener('visibilitychange', onVisible);
     const deadline = performance.now() + minutes * 60_000;
     const voices = IS_NATIVE ? null : await ensureVoices();
     const speak = (text) => (IS_NATIVE ? speakNative(text) : speakWeb(text, voices));
@@ -122,15 +139,18 @@ export function useReadAloud({ getView, lang }) {
     } catch { /* best-effort: stop quietly on any TTS/render error */ }
     finally {
       runningRef.current = false;
+      document.removeEventListener('visibilitychange', onVisible);
+      releaseWakeLock();
       if (IS_NATIVE) { try { TextToSpeech.stop(); } catch {} }
       else { try { window.speechSynthesis.cancel(); } catch {} }
       if (mountedRef.current) setReading(false);
     }
-  }, [getView, speakNative, speakWeb]);
+  }, [getView, speakNative, speakWeb, acquireWakeLock, releaseWakeLock]);
 
   useEffect(() => () => {
     mountedRef.current = false;
     stopRef.current = true;
+    try { wakeLockRef.current?.release?.(); } catch {}
     if (IS_NATIVE) { try { TextToSpeech.stop(); } catch {} }
     else { try { window.speechSynthesis.cancel(); } catch {} }
   }, []);

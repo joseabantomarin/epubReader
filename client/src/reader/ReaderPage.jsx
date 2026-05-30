@@ -364,6 +364,7 @@ export default function ReaderPage() {
         // Hardware volume buttons on Android (Capacitor): MainActivity hijacks
         // KEYCODE_VOLUME_UP/DOWN and dispatches a 'hardwareVolume' CustomEvent.
         const onVolume = (e) => {
+          if (readingRef.current) return; // reading aloud: leave volume to the OS
           const which = e.detail;
           if (which === 'volumeUp') leftSideAdvances ? view.next() : view.prev();
           else if (which === 'volumeDown') leftSideAdvances ? view.prev() : view.next();
@@ -568,6 +569,15 @@ export default function ReaderPage() {
 
   const { reading, start: startReadAloud, stop: stopReadAloud } =
     useReadAloud({ getView, lang: bookLang });
+
+  // While reading aloud on Android, stop hijacking the volume keys for page
+  // turns so they control the audio volume instead. `readingRef` lets the
+  // (closure-captured) volume handler see the current state.
+  const readingRef = useRef(false);
+  useEffect(() => {
+    readingRef.current = reading;
+    if (isNative) { try { window.AndroidVolume?.setHijack?.(!reading); } catch {} }
+  }, [reading]);
 
   const [readDialogOpen, setReadDialogOpen] = useState(false);
   const onSpeakerClick = useCallback(() => {
