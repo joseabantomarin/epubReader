@@ -214,6 +214,11 @@ export default function LibraryPage() {
         )}
       </header>
 
+      <p className={styles.intro}>
+        Tu biblioteca personal en la nube.<br />
+        Lee EPUB y PDF desde cualquier dispositivo. Tu progreso se sincroniza automáticamente — empieza un libro en tu computadora y termínalo en el celular.
+      </p>
+
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>Mis Libros</h2>
         {isGuest ? (
