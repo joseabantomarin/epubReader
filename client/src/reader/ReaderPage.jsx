@@ -358,12 +358,29 @@ export default function ReaderPage() {
 
   const [selectionMode, setSelectionMode] = useState(false);
 
-  // Compute a menu position above the rect if there's room, otherwise below.
+  // Web only: intercept the browser back button while selection mode is on.
+  // Push a fake history entry on activate; popstate (back press) deactivates
+  // instead of navigating away. Manual toggle-off pops our entry to keep the
+  // back stack clean.
+  useEffect(() => {
+    if (isNative || !selectionMode) return;
+    window.history.pushState({ selMode: true }, '');
+    let poppedByUser = false;
+    const onPop = () => { poppedByUser = true; setSelectionMode(false); };
+    window.addEventListener('popstate', onPop);
+    return () => {
+      window.removeEventListener('popstate', onPop);
+      if (!poppedByUser) window.history.back();
+    };
+  }, [selectionMode, isNative]);
+
+  // Always anchor the menu below the selection. On mobile web the browser's
+  // own selection toolbar lives above the text, so putting ours above too
+  // would collide — keeping ours below avoids the overlap.
   const menuPos = (() => {
     if (!selection?.rect) return null;
     const { x, y, w, h } = selection.rect;
-    const above = y - 50;
-    return { x: x + w / 2, y: above > 60 ? above : y + h + 12 };
+    return { x: x + w / 2, y: y + h + 12 };
   })();
 
   const refreshAnnotations = async () => {
