@@ -12,6 +12,7 @@ import { createAuthRouter } from './routes/auth.js';
 import { createBooksRouter } from './routes/books.js';
 import { createProgressRouter } from './routes/progress.js';
 import { createAnnotationsRouter } from './routes/annotations.js';
+import { createSharedRouter } from './routes/shared.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -73,6 +74,7 @@ export function createApp(options = {}) {
   app.use('/api/books', createBooksRouter(db, dataDir));
   app.use('/api/books', createProgressRouter(db));
   app.use('/api/books', createAnnotationsRouter(db));
+  app.use('/api/shared', createSharedRouter(db, dataDir));
 
   // Public downloads (e.g. Android APK). Outside the SPA dist so it survives
   // client rebuilds; served in any environment.

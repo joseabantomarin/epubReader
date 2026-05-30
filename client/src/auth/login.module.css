@@ -48,3 +48,12 @@
 .nativeBtn:hover { background: #f8f9fa; }
 .nativeBtn:disabled { opacity: 0.6; cursor: default; }
 .error { color: #b00020; margin-top: 16px; font-size: 14px; }
+.guestLink {
+  margin-top: 14px;
+  background: none;
+  border: none;
+  color: #4060c0;
+  font-size: 0.95rem;
+  text-decoration: underline;
+  cursor: pointer;
+}

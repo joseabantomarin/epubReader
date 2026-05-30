@@ -6,6 +6,7 @@ export default function Toolbar({
   selectionMode, selectedCount,
   onAddFile,
   onEnterSelection, onCancelSelection, onDeleteSelected,
+  onShareSelected, onUnshareSelected,
   uploading,
 }) {
   const fileRef = useRef(null);
@@ -44,6 +45,20 @@ export default function Toolbar({
               disabled={selectedCount === 0}
             >
               🗑 Eliminar ({selectedCount})
+            </button>
+            <button
+              className={styles.btn}
+              onClick={onShareSelected}
+              disabled={selectedCount === 0}
+            >
+              🔗 Compartir ({selectedCount})
+            </button>
+            <button
+              className={styles.btn}
+              onClick={onUnshareSelected}
+              disabled={selectedCount === 0}
+            >
+              ✕ Dejar de compartir ({selectedCount})
             </button>
             <button className={styles.btn} onClick={onCancelSelection}>Cancelar</button>
           </>

@@ -205,3 +205,32 @@
   border-top: 1px solid var(--border);
   margin: 48px 0 32px;
 }
+
+.rating { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+.stars { display: inline-flex; gap: 1px; font-size: 0.95rem; line-height: 1; }
+.starOn { color: #f5a623; }
+.starOff { color: #c9ccd4; }
+.starBtn { background: none; border: none; padding: 0 1px; cursor: pointer; font-size: 0.95rem; line-height: 1; }
+.ratingMeta { font-size: 0.72rem; color: #6b7280; }
+
+.sharedBadge {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  background: rgba(16, 32, 96, 0.85);
+  color: #fff;
+  border-radius: 6px;
+  padding: 1px 5px;
+  font-size: 0.8rem;
+}
+
+.sharedItem { display: flex; flex-direction: column; }
+.sharedBy { font-size: 0.75rem; color: #6b7280; margin: 4px 0 0; }
+
+.section { margin-top: 18px; }
+.sectionTitle { font-size: 1.15rem; font-weight: 700; margin: 0 0 10px; color: #1a2340; }
+.guestCard {
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+  padding: 28px 18px; border: 1px dashed #c9ccd4; border-radius: 12px; text-align: center;
+}
+.guestLead { margin: 0; color: #4b5563; }

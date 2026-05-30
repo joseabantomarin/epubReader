@@ -47,7 +47,7 @@ export function createBooksRouter(db, dataDir) {
   r.get('/', (req, res) => {
     const userId = req.user.sub;
     const rows = db.prepare(`
-      SELECT b.id, b.title, b.author, b.cover_path, b.uploaded_at, b.format,
+      SELECT b.id, b.title, b.author, b.cover_path, b.uploaded_at, b.format, b.shared,
              COALESCE(p.percentage, 0) AS percentage,
              p.last_read_at AS last_read_at
         FROM books b
@@ -60,6 +60,7 @@ export function createBooksRouter(db, dataDir) {
       title: row.title,
       author: row.author,
       format: row.format,
+      shared: row.shared,
       coverUrl: row.cover_path ? `/api/books/${row.id}/cover` : null,
       percentage: row.percentage,
       lastReadAt: row.last_read_at,
@@ -171,6 +172,20 @@ export function createBooksRouter(db, dataDir) {
     }
     res.json({ deleted });
   });
+
+  function setShared(req, res, value) {
+    const userId = req.user.sub;
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids.filter(Number.isInteger) : [];
+    if (ids.length === 0) return res.json({ updated: 0 });
+    const placeholders = ids.map(() => '?').join(',');
+    const result = db.prepare(
+      `UPDATE books SET shared = ? WHERE user_id = ? AND id IN (${placeholders})`
+    ).run(value, userId, ...ids);
+    res.json({ updated: result.changes });
+  }
+
+  r.post('/share', (req, res) => setShared(req, res, 1));
+  r.post('/unshare', (req, res) => setShared(req, res, 0));
 
   function getOwnedBook(req, res) {
     const id = Number(req.params.id);

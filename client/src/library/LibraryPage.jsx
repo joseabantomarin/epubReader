@@ -12,6 +12,9 @@ import { listCachedBookIds } from '../lib/offlineCache.js';
 import { getCachedLibrary, saveCachedLibrary } from '../lib/offlineLibrary.js';
 import { getProgressLocal } from '../lib/offlineProgress.js';
 import { useAuth } from '../auth/AuthContext.jsx';
+import GoogleSignInButton from '../auth/GoogleSignInButton.jsx';
+import SharedShelf from './SharedShelf.jsx';
+import loginStyles from '../auth/login.module.css';
 import Toolbar from './Toolbar.jsx';
 import BookCard from './BookCard.jsx';
 import SettingsModal from './SettingsModal.jsx';
@@ -31,6 +34,8 @@ export default function LibraryPage() {
   const [viewMode, setViewMode] = useState(() => loadSettings().viewMode);
   const [isFullscreen, toggleFullscreen] = useFullscreen();
   const [offline, setOffline] = useState(false);
+  const [shared, setShared] = useState([]);
+  const isGuest = !user;
 
   const reload = useCallback(async ({ silent = false } = {}) => {
     if (!silent) setLoading(true);
@@ -48,13 +53,16 @@ export default function LibraryPage() {
       };
     });
     try {
-      const list = await api.listBooks();
-      setBooks(enrich(list));
-      saveCachedLibrary(list);
+      if (user) {
+        const list = await api.listBooks();
+        setBooks(enrich(list));
+        saveCachedLibrary(list);
+      } else {
+        setBooks([]);
+      }
       setOffline(false);
       setError(null);
     } catch (e) {
-      // Network/server down — fall back to the last known list, if any.
       const cached = getCachedLibrary();
       if (cached?.books?.length) {
         setBooks(enrich(cached.books));
@@ -66,7 +74,11 @@ export default function LibraryPage() {
     } finally {
       if (!silent) setLoading(false);
     }
-  }, []);
+    try {
+      const sh = await api.listShared();
+      setShared(sh.filter((b) => !b.mine));
+    } catch { /* sin red: vitrina vacía */ }
+  }, [user]);
 
   useEffect(() => { reload(); }, [reload]);
 
@@ -91,6 +103,15 @@ export default function LibraryPage() {
       (b.author || '').toLowerCase().includes(q)
     );
   }, [books, query]);
+
+  const sharedFiltered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return shared;
+    return shared.filter(b =>
+      (b.title || '').toLowerCase().includes(q) ||
+      (b.author || '').toLowerCase().includes(q)
+    );
+  }, [shared, query]);
 
   const handleAddFile = async (file) => {
     setUploading(true);
@@ -137,6 +158,28 @@ export default function LibraryPage() {
     }
   };
 
+  const shareSelected = async () => {
+    const ids = [...selectedIds];
+    if (ids.length === 0) return;
+    try {
+      await api.shareBooks(ids);
+      setBooks((prev) => prev.map(b => selectedIds.has(b.id) ? { ...b, shared: 1 } : b));
+      cancelSelection();
+      reload({ silent: true });
+    } catch (e) { alert('Error al compartir: ' + e.message); }
+  };
+  const unshareSelected = async () => {
+    const ids = [...selectedIds];
+    if (ids.length === 0) return;
+    try {
+      await api.unshareBooks(ids);
+      setBooks((prev) => prev.map(b => selectedIds.has(b.id) ? { ...b, shared: 0 } : b));
+      cancelSelection();
+      reload({ silent: true });
+    } catch (e) { alert('Error al dejar de compartir: ' + e.message); }
+  };
+  const openShared = (book) => navigate(`/read/${book.id}?shared=1`);
+
   const onActivate = (book) => {
     if (selectionMode) { toggleSelect(book.id); return; }
     if (offline && !book.isOffline) {
@@ -153,66 +196,74 @@ export default function LibraryPage() {
           <img src="/favicon.svg" alt="" className={styles.logo} width="32" height="32" />
           <h1 className={styles.title}>MisLibros</h1>
         </div>
-        <div className={styles.userBox}>
-          {!Capacitor.isNativePlatform() && (
-            <FullscreenButton className={styles.iconBtn} isFullscreen={isFullscreen} onToggle={toggleFullscreen} />
-          )}
-          <button
-            className={styles.iconBtn}
-            onClick={() => setSettingsOpen(true)}
-            aria-label="Ajustes del lector"
-            title="Ajustes del lector"
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="3"/>
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-            </svg>
-          </button>
-          <Avatar user={user} className={styles.avatar} />
-          <button className={styles.logoutBtn} onClick={logout}>Salir</button>
-        </div>
+        {!isGuest && (
+          <div className={styles.userBox}>
+            {!Capacitor.isNativePlatform() && (
+              <FullscreenButton className={styles.iconBtn} isFullscreen={isFullscreen} onToggle={toggleFullscreen} />
+            )}
+            <button className={styles.iconBtn} onClick={() => setSettingsOpen(true)}
+              aria-label="Ajustes del lector" title="Ajustes del lector">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+              </svg>
+            </button>
+            <Avatar user={user} className={styles.avatar} />
+            <button className={styles.logoutBtn} onClick={logout}>Salir</button>
+          </div>
+        )}
       </header>
 
-      <Toolbar
-        query={query}
-        onQueryChange={setQuery}
-        selectionMode={selectionMode}
-        selectedCount={selectedIds.size}
-        uploading={uploading}
-        onAddFile={handleAddFile}
-        onEnterSelection={enterSelection}
-        onCancelSelection={cancelSelection}
-        onDeleteSelected={deleteSelected}
-      />
-
-      {offline && (
-        <div className={styles.offlineBanner}>
-          Modo offline — viendo libros guardados localmente
-        </div>
-      )}
-
-      {error && <p className={styles.empty} style={{ color: '#b00020' }}>{error}</p>}
-      {loading ? (
-        <p className={styles.empty}><span className={styles.spinner} />Cargando…</p>
-      ) : filtered.length === 0 ? (
-        <p className={styles.empty}>
-          {books.length === 0
-            ? 'Aún no tienes libros. Pulsa "Agregar" para subir tu primer EPUB.'
-            : 'No hay coincidencias.'}
-        </p>
-      ) : (
-        <div className={viewMode === 'list' ? styles.list : styles.grid}>
-          {filtered.map((b) => (
-            <BookCard
-              key={b.id}
-              book={b}
+      <section className={styles.section}>
+        <h2 className={styles.sectionTitle}>Mis Libros</h2>
+        {isGuest ? (
+          <div className={styles.guestCard}>
+            <p className={styles.guestLead}>Inicia sesión para subir y leer tus propios libros.</p>
+            <GoogleSignInButton className={loginStyles.btnSlot} nativeClassName={loginStyles.nativeBtn} />
+          </div>
+        ) : (
+          <>
+            <Toolbar
+              query={query}
+              onQueryChange={setQuery}
               selectionMode={selectionMode}
-              selected={selectedIds.has(b.id)}
-              onActivate={onActivate}
+              selectedCount={selectedIds.size}
+              uploading={uploading}
+              onAddFile={handleAddFile}
+              onEnterSelection={enterSelection}
+              onCancelSelection={cancelSelection}
+              onDeleteSelected={deleteSelected}
+              onShareSelected={shareSelected}
+              onUnshareSelected={unshareSelected}
             />
-          ))}
-        </div>
-      )}
+            {offline && (
+              <div className={styles.offlineBanner}>Modo offline — viendo libros guardados localmente</div>
+            )}
+            {error && <p className={styles.empty} style={{ color: '#b00020' }}>{error}</p>}
+            {loading ? (
+              <p className={styles.empty}><span className={styles.spinner} />Cargando…</p>
+            ) : filtered.length === 0 ? (
+              <p className={styles.empty}>
+                {books.length === 0
+                  ? 'Aún no tienes libros. Pulsa "Agregar" para subir tu primer EPUB.'
+                  : 'No hay coincidencias.'}
+              </p>
+            ) : (
+              <div className={viewMode === 'list' ? styles.list : styles.grid}>
+                {filtered.map((b) => (
+                  <BookCard key={b.id} book={b} selectionMode={selectionMode}
+                    selected={selectedIds.has(b.id)} onActivate={onActivate} />
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </section>
+
+      <section className={styles.section}>
+        <h2 className={styles.sectionTitle}>Libros Compartidos</h2>
+        <SharedShelf books={sharedFiltered} canRate={!isGuest} onOpen={openShared} />
+      </section>
 
       <SettingsModal open={settingsOpen} onClose={() => { setSettingsOpen(false); setViewMode(loadSettings().viewMode); }} />
 

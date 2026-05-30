@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import styles from './library.module.css';
-import { bookCoverUrl, getToken } from '../lib/api.js';
+import { bookCoverUrl, sharedCoverUrl, getToken } from '../lib/api.js';
 import { getCover, putCover } from '../lib/offlineCache.js';
 import { percent, relativeTime } from '../lib/format.js';
 
@@ -10,7 +10,7 @@ function hashColor(s) {
   return `hsl(${h % 360} 50% 45%)`;
 }
 
-export default function BookCard({ book, selectionMode, selected, onActivate }) {
+export default function BookCard({ book, selectionMode, selected, onActivate, shared = false }) {
   const handleClick = () => onActivate(book);
   const [coverSrc, setCoverSrc] = useState(null);
 
@@ -30,9 +30,9 @@ export default function BookCard({ book, selectionMode, selected, onActivate }) 
       const cached = await getCover(book.id);
       if (cached) { show(cached); return; }
       try {
-        const res = await fetch(bookCoverUrl(book.id), {
-          headers: { Authorization: `Bearer ${getToken()}` },
-        });
+        const url = shared ? sharedCoverUrl(book.id) : bookCoverUrl(book.id);
+        const headers = shared ? {} : { Authorization: `Bearer ${getToken()}` };
+        const res = await fetch(url, { headers });
         if (!res.ok) return;
         const blob = await res.blob();
         putCover(book.id, blob).catch(() => {});
@@ -43,7 +43,7 @@ export default function BookCard({ book, selectionMode, selected, onActivate }) 
       cancelled = true;
       if (createdUrl) URL.revokeObjectURL(createdUrl);
     };
-  }, [book.id, book.coverUrl]);
+  }, [book.id, book.coverUrl, shared]);
 
   return (
     <div
@@ -70,6 +70,9 @@ export default function BookCard({ book, selectionMode, selected, onActivate }) 
         {book.isOffline && (
           <span className={styles.offlineDot} title="Disponible offline" aria-label="Disponible offline" />
         )}
+        {book.shared ? (
+          <span className={styles.sharedBadge} title="Compartido" aria-label="Compartido">🔗</span>
+        ) : null}
         {selectionMode && (
           <div className={styles.checkbox} aria-hidden>{selected ? '✓' : ''}</div>
         )}

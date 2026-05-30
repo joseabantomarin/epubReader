@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
 import styles from './reader.module.css';
-import { api, bookFileUrl, getToken } from '../lib/api.js';
+import { api, bookFileUrl, sharedFileUrl, getToken } from '../lib/api.js';
 import { getBookFile, putBookFile } from '../lib/offlineCache.js';
 import { getProgressLocal, saveProgressLocal, markSynced } from '../lib/offlineProgress.js';
 import { percent } from '../lib/format.js';
@@ -49,6 +49,8 @@ function rangeToViewportRect(range) {
 
 export default function ReaderPage() {
   const { bookId } = useParams();
+  const [searchParams] = useSearchParams();
+  const isShared = searchParams.get('shared') === '1' || !getToken();
   const navigate = useNavigate();
   const containerRef = useRef(null);
   const viewRef = useRef(null);
@@ -95,12 +97,13 @@ export default function ReaderPage() {
         // Try the local copy first (works offline, instant). If absent, fetch
         // from the server and store the buffer for next time.
         let buf = await getBookFile(bookId);
-        const serverProgress = await api.getProgress(bookId).catch(() => null);
+        const serverProgress = isShared ? null : await api.getProgress(bookId).catch(() => null);
         const progress = serverProgress || getProgressLocal(bookId);
         if (!buf) {
-          const fileRes = await fetch(bookFileUrl(bookId), {
-            headers: { Authorization: `Bearer ${getToken()}` },
-          });
+          const fileRes = await fetch(
+            isShared ? sharedFileUrl(bookId) : bookFileUrl(bookId),
+            isShared ? {} : { headers: { Authorization: `Bearer ${getToken()}` } },
+          );
           if (!fileRes.ok) throw new Error('No se pudo cargar el libro');
           buf = await fileRes.arrayBuffer();
           putBookFile(bookId, buf).catch(() => {});
@@ -245,15 +248,17 @@ export default function ReaderPage() {
         const rawLang = view.book?.metadata?.language;
         const detectedLang = String((Array.isArray(rawLang) ? rawLang[0] : rawLang) || 'es').split(/[-_]/)[0];
         setBookLang(detectedLang);
-        try {
-          const list = await api.listAnnotations(bookId);
-          if (!disposed && Array.isArray(list)) {
-            setAnnotations(list);
-            for (const a of list) {
-              try { await view.addAnnotation({ value: a.cfi, color: a.color }); } catch {}
+        if (!isShared) {
+          try {
+            const list = await api.listAnnotations(bookId);
+            if (!disposed && Array.isArray(list)) {
+              setAnnotations(list);
+              for (const a of list) {
+                try { await view.addAnnotation({ value: a.cfi, color: a.color }); } catch {}
+              }
             }
-          }
-        } catch { /* offline or not yet — silent */ }
+          } catch { /* offline or not yet — silent */ }
+        }
 
         view.addEventListener('relocate', (e) => {
           const fraction = typeof e.detail?.fraction === 'number' ? e.detail.fraction : null;
@@ -284,7 +289,7 @@ export default function ReaderPage() {
           if (cfi) {
             latestPosRef.current = { cfi, fraction: saveFraction };
             saveProgressLocal(bookId, cfi, saveFraction);
-            if (cfi !== lastSavedCfiRef.current) {
+            if (!isShared && cfi !== lastSavedCfiRef.current) {
               lastSavedCfiRef.current = cfi;
               api.putProgress(bookId, cfi, saveFraction)
                 .then(() => markSynced(bookId))
@@ -297,7 +302,7 @@ export default function ReaderPage() {
         // back to the library — or closing the tab — never loses progress.
         const flush = () => {
           const pos = latestPosRef.current;
-          if (!pos) return;
+          if (!pos || isShared) return;
           api.putProgressKeepalive(bookId, pos.cfi, pos.fraction);
         };
         const onVisibility = () => { if (document.visibilityState === 'hidden') flush(); };
@@ -354,7 +359,7 @@ export default function ReaderPage() {
       }
       viewRef.current = null;
     };
-  }, [bookId]);
+  }, [bookId, isShared]);
 
   const [selectionMode, setSelectionMode] = useState(false);
 
@@ -507,7 +512,7 @@ export default function ReaderPage() {
 
   const goBack = async () => {
     const pos = latestPosRef.current;
-    if (pos) {
+    if (pos && !isShared) {
       try { await api.putProgress(bookId, pos.cfi, pos.fraction); } catch {}
     }
     navigate('/');
@@ -529,9 +534,11 @@ export default function ReaderPage() {
           <button className={styles.back} onClick={() => setTocOpen(true)}
             aria-label="Índice de capítulos" title="Índice de capítulos">☰</button>
         )}
-        <button className={styles.back} onClick={() => setAnnotationsOpen(true)}
-          aria-label="Subrayados" title="Subrayados">★</button>
-        {!isNative && (
+        {!isShared && (
+          <button className={styles.back} onClick={() => setAnnotationsOpen(true)}
+            aria-label="Subrayados" title="Subrayados">★</button>
+        )}
+        {!isNative && !isShared && (
           <button className={`${styles.back} ${selectionMode ? styles.backActive : ''}`}
             onClick={() => setSelectionMode((v) => !v)}
             aria-label={selectionMode ? 'Salir del modo selección' : 'Modo selección de texto'}
@@ -555,7 +562,7 @@ export default function ReaderPage() {
               onClick={onLeftSide}>‹</button>
             <button className={`${styles.navBtn} ${styles.navCenter} ${selectionMode ? styles.navPassthrough : ''}`}
               aria-label={selectionMode ? 'Salir del modo selección' : 'Activar selección de texto'}
-              onClick={() => setSelectionMode((v) => !v)} />
+              onClick={() => { if (!isShared) setSelectionMode((v) => !v); }} />
             <button className={`${styles.navBtn} ${styles.navNext} ${selectionMode ? styles.navPassthrough : ''}`}
               aria-label={leftSideAdvances ? 'Anterior' : 'Siguiente'}
               onClick={onRightSide}>›</button>
@@ -589,16 +596,18 @@ export default function ReaderPage() {
         </>
       )}
 
-      <SelectionMenu
-        pos={menuPos}
-        existingId={selection?.existingId}
-        onDictionary={onDictionary}
-        onHighlight={onHighlight}
-        onNote={onNote}
-        onCopy={onCopy}
-        onShare={onShare}
-        onDelete={onDelete}
-      />
+      {!isShared && (
+        <SelectionMenu
+          pos={menuPos}
+          existingId={selection?.existingId}
+          onDictionary={onDictionary}
+          onHighlight={onHighlight}
+          onNote={onNote}
+          onCopy={onCopy}
+          onShare={onShare}
+          onDelete={onDelete}
+        />
+      )}
       <WiktionaryModal
         open={!!dictTerm}
         term={dictTerm || ''}
