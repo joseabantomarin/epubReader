@@ -11,6 +11,7 @@ import { useFullscreen } from '../lib/useFullscreen.js';
 import FullscreenButton from '../lib/FullscreenButton.jsx';
 import SelectionMenu from './SelectionMenu.jsx';
 import WiktionaryModal from './WiktionaryModal.jsx';
+import AIExplainModal from './AIExplainModal.jsx';
 import NoteModal from './NoteModal.jsx';
 import AnnotationsDrawer from './AnnotationsDrawer.jsx';
 
@@ -82,6 +83,8 @@ export default function ReaderPage() {
   // Active selection: { text, cfi, rect:{x,y,w,h}, existingId? }. rect is in viewport coords.
   const [selection, setSelection] = useState(null);
   const [dictTerm, setDictTerm] = useState(null);
+  const [aiText, setAiText] = useState(null);
+  const [online, setOnline] = useState(() => navigator.onLine);
   const [noteFor, setNoteFor] = useState(null);   // { id?, text, cfi, note }
   const [bookLang, setBookLang] = useState('es');
   const docsRef = useRef(new Map());                // index → { doc, iframe }
@@ -410,6 +413,16 @@ export default function ReaderPage() {
     };
   }, [selectionMode, isNative]);
 
+  useEffect(() => {
+    const update = () => setOnline(navigator.onLine);
+    window.addEventListener('online', update);
+    window.addEventListener('offline', update);
+    return () => {
+      window.removeEventListener('online', update);
+      window.removeEventListener('offline', update);
+    };
+  }, []);
+
   // Always anchor the menu below the selection. On mobile web the browser's
   // own selection toolbar lives above the text, so putting ours above too
   // would collide — keeping ours below avoids the overlap.
@@ -637,6 +650,8 @@ export default function ReaderPage() {
           onCopy={onCopy}
           onShare={onShare}
           onDelete={onDelete}
+          showAI={online}
+          onExplainAI={() => { if (selection?.text) setAiText(selection.text); }}
         />
       )}
       <WiktionaryModal
@@ -645,6 +660,7 @@ export default function ReaderPage() {
         lang={bookLang}
         onClose={() => { setDictTerm(null); clearSelection(); }}
       />
+      <AIExplainModal text={aiText} onClose={() => { setAiText(null); clearSelection(); }} />
       <NoteModal
         open={!!noteFor}
         snippet={noteFor?.text}
