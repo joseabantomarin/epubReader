@@ -571,8 +571,20 @@ export default function ReaderPage() {
     if (pos && !isShared) {
       try { await api.putProgress(bookId, pos.cfi, pos.fraction); } catch {}
     }
+    try { localStorage.removeItem('epubreader.readerPath'); } catch {}  // intentional exit: don't auto-restore
     navigate('/');
   };
+
+  // Android can reload the WebView when the screen is off; remember this book's
+  // route (refreshed periodically) so it's restored on reload. Cleared on goBack.
+  useEffect(() => {
+    if (!isNative) return;
+    const path = window.location.pathname + window.location.search;
+    const save = () => { try { localStorage.setItem('epubreader.readerPath', JSON.stringify({ path, t: Date.now() })); } catch {} };
+    save();
+    const id = setInterval(save, 30000);
+    return () => clearInterval(id);
+  }, [isNative]);
 
   const getView = useCallback(() => viewRef.current, []);
 
@@ -654,8 +666,11 @@ export default function ReaderPage() {
             </svg>
           )}
         </button>
-        {/* On small screens these collapse behind the toggle; on desktop they show inline */}
-        <div className={styles.collapsible} data-open={actionsOpen ? 'true' : 'false'}>
+        {/* On small web screens these collapse behind the toggle; desktop and
+            Android (native) always show them inline. */}
+        <div className={styles.collapsible}
+          data-open={actionsOpen ? 'true' : 'false'}
+          data-native={isNative ? 'true' : 'false'}>
           {toc.length > 0 && (
             <button className={styles.back} onClick={() => { setTocOpen(true); recordAction('toc'); }}
               aria-label="Índice de capítulos" title="Índice de capítulos">☰</button>
@@ -679,7 +694,7 @@ export default function ReaderPage() {
               onToggle={() => { toggleFullscreen(); recordAction('fullscreen'); }} hint="F" />
           )}
         </div>
-        {availableActions.length > 0 && (
+        {!isNative && availableActions.length > 0 && (
           <button className={styles.actionsToggle} data-open={actionsOpen ? 'true' : 'false'}
             onClick={() => setActionsOpen((v) => !v)}
             aria-expanded={actionsOpen}

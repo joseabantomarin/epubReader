@@ -11,7 +11,7 @@ export default function ReadAloudDialog({ open, onClose, onStart }) {
   if (!open) return null;
 
   const submit = () => {
-    const n = Math.max(1, Math.min(180, Math.round(Number(minutes) || 15)));
+    const n = Math.max(1, Math.min(100, Math.round(Number(minutes) || 15)));
     onStart(n);
   };
 
@@ -24,9 +24,9 @@ export default function ReadAloudDialog({ open, onClose, onStart }) {
         </header>
         <div className={styles.modalBody}>
           <label style={{ display: 'block', marginBottom: 10 }}>
-            ¿Cuántos minutos leer?
+            ¿Cuántos minutos leer? (máx. 100)
             <input
-              type="number" min="1" max="180" inputMode="numeric"
+              type="number" min="1" max="100" inputMode="numeric"
               value={minutes}
               onChange={(e) => setMinutes(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}

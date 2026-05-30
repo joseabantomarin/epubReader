@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
-import { TextToSpeech } from '@capacitor-community/text-to-speech';
+import { TextToSpeech, QueueStrategy } from '@capacitor-community/text-to-speech';
 
 const IS_NATIVE = Capacitor.isNativePlatform();
+const MAX_MINUTES = 100;            // hard cap on the read-aloud duration
+const CHARS_PER_MIN = 900;          // rough Spanish TTS rate, to size the queue
+const CHUNK_LEN = 3500;             // Android TTS per-utterance limit is ~4000
 
-// foliate's TTS emits SSML (with <mark>/<break> elements). For speech we only
-// need the plain text — strip the SSML to its text content.
+// foliate's TTS emits SSML (with <mark>/<break> elements). For web speech we
+// only need the plain text — strip the SSML to its text content.
 function ssmlToText(ssml) {
   if (!ssml || typeof ssml !== 'string') return '';
   try {
@@ -16,28 +19,56 @@ function ssmlToText(ssml) {
   }
 }
 
-// Reads aloud from the CURRENT page using foliate-js's built-in TTS, which
-// walks the document block-by-block and scrolls to each block as it is spoken
-// (so the visible page follows the audio). It crosses into the next section
-// automatically, and stops on the time budget, end of book, Stop, or unmount.
-//
-// Audio engine: the native Android TextToSpeech plugin on Capacitor (the
-// WebView's Web Speech API produces no sound there), and the Web Speech API on
-// the web (where it works well).
+// Split text into <= maxLen chunks, preferring sentence boundaries.
+function chunkText(text, maxLen) {
+  const sentences = text.match(/[^.!?\n]+[.!?]*\s*/g) || [text];
+  const out = [];
+  let cur = '';
+  for (const s of sentences) {
+    if ((cur + s).length > maxLen) {
+      if (cur.trim()) out.push(cur.trim());
+      cur = '';
+      if (s.length > maxLen) {
+        for (let i = 0; i < s.length; i += maxLen) out.push(s.slice(i, i + maxLen).trim());
+      } else cur = s;
+    } else cur += s;
+  }
+  if (cur.trim()) out.push(cur.trim());
+  return out.filter(Boolean);
+}
+
+// Text of the current section from the current reading position to its end.
+function currentSectionText(view) {
+  try {
+    const doc = view.renderer?.getContents?.()[0]?.doc;
+    if (!doc?.body) return '';
+    const r = view.lastLocation?.range;
+    if (r?.startContainer) {
+      const range = doc.createRange();
+      range.setStart(r.startContainer, r.startOffset);
+      range.setEnd(doc.body, doc.body.childNodes.length);
+      const t = range.toString();
+      if (t && t.trim()) return t;
+    }
+    return doc.body.innerText || '';
+  } catch { return ''; }
+}
+
+// Reads aloud from the CURRENT page. Two engines:
+// - Web: foliate's TTS block-by-block via the Web Speech API; foliate scrolls
+//   the page to each block so the view follows the audio.
+// - Native (Android): the WebView freezes JS when the screen is off, so we
+//   can't drive playback block-by-block. Instead we extract the text for the
+//   requested minutes up front (across sections) and queue it all on the native
+//   TextToSpeech engine, which keeps playing with the screen off.
 export function useReadAloud({ getView, lang }) {
   const [reading, setReading] = useState(false);
   const stopRef = useRef(false);
   const runningRef = useRef(false);
   const mountedRef = useRef(true);
   const wakeLockRef = useRef(null);
-  // Resolver for the in-flight speak() promise, so stop() can unblock the read
-  // loop even if the engine's own promise never settles after being stopped.
   const pendingResolveRef = useRef(null);
 
-  // Web: keep the screen awake during reading so it doesn't auto-sleep (which
-  // suspends the Web Speech API). Re-acquired when the tab becomes visible
-  // again, since the lock is dropped while hidden. (Native uses the OS TTS,
-  // which keeps playing regardless.)
   const acquireWakeLock = useCallback(async () => {
     if (IS_NATIVE) return;
     try { wakeLockRef.current = await navigator.wakeLock?.request('screen'); } catch {}
@@ -51,11 +82,10 @@ export function useReadAloud({ getView, lang }) {
     stopRef.current = true;
     if (IS_NATIVE) { try { TextToSpeech.stop(); } catch {} }
     else { try { window.speechSynthesis.cancel(); } catch {} }
-    pendingResolveRef.current?.(); // unblock the awaiting speak() so the loop exits
+    pendingResolveRef.current?.();
     setReading(false);
   }, []);
 
-  // getVoices() is async in Chromium: empty until 'voiceschanged'. Web only.
   const ensureVoices = () => new Promise((resolve) => {
     const ss = window.speechSynthesis;
     const have = ss.getVoices();
@@ -68,26 +98,9 @@ export function useReadAloud({ getView, lang }) {
       resolve(ss.getVoices());
     };
     ss.addEventListener?.('voiceschanged', finish);
-    setTimeout(finish, 1000); // fallback if the event never fires
+    setTimeout(finish, 1000);
   });
 
-  // Native: hand the text to the OS TextToSpeech engine, which resolves when
-  // done and has no length/gesture limits.
-  const speakNative = useCallback((text) => new Promise((resolve) => {
-    let settled = false;
-    const done = () => {
-      if (settled) return;
-      settled = true;
-      if (pendingResolveRef.current === done) pendingResolveRef.current = null;
-      resolve();
-    };
-    pendingResolveRef.current = done;
-    // resolve on success OR error (missing voice/engine) so the loop never hangs
-    TextToSpeech.speak({ text, lang: lang || 'es-ES', rate: 1.0 }).then(done, done);
-  }), [lang]);
-
-  // Web: Web Speech API with a pause/resume keep-alive (Chromium stops
-  // utterances longer than ~15s).
   const speakWeb = useCallback((text, voices) => new Promise((resolve) => {
     const ss = window.speechSynthesis;
     const u = new SpeechSynthesisUtterance(text);
@@ -114,48 +127,86 @@ export function useReadAloud({ getView, lang }) {
     }, 10000);
   }), [lang]);
 
+  // ── Native: gather text for the requested minutes and queue it all. ──
+  const startNative = useCallback(async (view, minutes) => {
+    try { await TextToSpeech.stop(); } catch {}
+    const maxChars = minutes * CHARS_PER_MIN;
+    const sections = view.book?.sections || [];
+    const startIndex = (() => {
+      try { return view.renderer.getContents()[0].index ?? 0; } catch { return 0; }
+    })();
+    let total = 0;
+    const proms = [];
+    const enqueue = (text) => {
+      for (const chunk of chunkText(text, CHUNK_LEN)) {
+        if (stopRef.current || total >= maxChars) return;
+        total += chunk.length;
+        // Do NOT await: fire-and-queue so the native engine buffers everything
+        // and plays it back-to-back even while JS is frozen (screen off).
+        proms.push(TextToSpeech.speak({
+          text: chunk, lang: lang || 'es-ES', rate: 1.0, queueStrategy: QueueStrategy.Add,
+        }).catch(() => {}));
+      }
+    };
+
+    enqueue(currentSectionText(view));
+    for (let i = startIndex + 1; i < sections.length && total < maxChars && !stopRef.current; i++) {
+      let doc;
+      try { doc = await sections[i].createDocument(); } catch { continue; }
+      const t = (doc?.body?.innerText || '').replace(/\s+/g, ' ').trim();
+      if (t) enqueue(t);
+    }
+
+    if (!proms.length) return;
+    // Resolve when the last queued utterance finishes OR stop() fires.
+    await new Promise((resolve) => {
+      let settled = false;
+      const done = () => { if (settled) return; settled = true; pendingResolveRef.current = null; resolve(); };
+      pendingResolveRef.current = done;
+      proms[proms.length - 1].then(done, done);
+    });
+  }, [lang]);
+
+  // ── Web: foliate block-by-block with page-follow. ──
+  const startWeb = useCallback(async (view, deadline) => {
+    const voices = await ensureVoices();
+    await view.initTTS('sentence');
+    let ssml = view.lastLocation?.range ? view.tts.from(view.lastLocation.range) : view.tts.start();
+    while (!stopRef.current && performance.now() < deadline) {
+      const text = ssmlToText(ssml);
+      if (text) {
+        await speakWeb(text, voices);
+        if (stopRef.current || performance.now() >= deadline) break;
+      }
+      let nextSsml = view.tts.next(true);
+      if (nextSsml == null) {
+        const before = view.renderer?.start;
+        await view.next();
+        await new Promise(r => setTimeout(r, 300));
+        if (view.renderer?.start === before) break;
+        await view.initTTS('sentence');
+        nextSsml = view.tts.start();
+        if (nextSsml == null) break;
+      }
+      ssml = nextSsml;
+    }
+  }, [speakWeb]);
+
   const start = useCallback(async (minutes) => {
     if (runningRef.current) return;
     const view = getView();
     if (!view || typeof view.initTTS !== 'function') return;
+    const mins = Math.max(1, Math.min(MAX_MINUTES, Math.round(minutes) || 15));
     runningRef.current = true;
     stopRef.current = false;
     setReading(true);
     await acquireWakeLock();
     const onVisible = () => { if (document.visibilityState === 'visible' && runningRef.current) acquireWakeLock(); };
     document.addEventListener('visibilitychange', onVisible);
-    const deadline = performance.now() + minutes * 60_000;
-    const voices = IS_NATIVE ? null : await ensureVoices();
-    const speak = (text) => (IS_NATIVE ? speakNative(text) : speakWeb(text, voices));
     try {
-      await view.initTTS('sentence');
-      // Start at the block under the current page; fall back to the section start.
-      let ssml = view.lastLocation?.range
-        ? view.tts.from(view.lastLocation.range)
-        : view.tts.start();
-
-      while (!stopRef.current && performance.now() < deadline) {
-        const text = ssmlToText(ssml);
-        if (text) {
-          await speak(text);
-          if (stopRef.current || performance.now() >= deadline) break;
-        }
-        // Advance to the next block; paused=true makes foliate scroll the page
-        // to that block so the view follows the audio.
-        let nextSsml = view.tts.next(true);
-        if (nextSsml == null) {
-          // End of this section — load the next one and continue from its start.
-          const before = view.renderer?.start;
-          await view.next();
-          await new Promise(r => setTimeout(r, 300)); // let the section load
-          if (view.renderer?.start === before) break;  // end of book / no advance
-          await view.initTTS('sentence');
-          nextSsml = view.tts.start();
-          if (nextSsml == null) break;
-        }
-        ssml = nextSsml;
-      }
-    } catch { /* best-effort: stop quietly on any TTS/render error */ }
+      if (IS_NATIVE) await startNative(view, mins);
+      else await startWeb(view, performance.now() + mins * 60_000);
+    } catch { /* best-effort */ }
     finally {
       runningRef.current = false;
       document.removeEventListener('visibilitychange', onVisible);
@@ -164,7 +215,7 @@ export function useReadAloud({ getView, lang }) {
       else { try { window.speechSynthesis.cancel(); } catch {} }
       if (mountedRef.current) setReading(false);
     }
-  }, [getView, speakNative, speakWeb, acquireWakeLock, releaseWakeLock]);
+  }, [getView, startNative, startWeb, acquireWakeLock, releaseWakeLock]);
 
   useEffect(() => () => {
     mountedRef.current = false;
@@ -175,5 +226,5 @@ export function useReadAloud({ getView, lang }) {
     pendingResolveRef.current?.();
   }, []);
 
-  return { reading, start, stop };
+  return { reading, start, stop, maxMinutes: MAX_MINUTES };
 }
