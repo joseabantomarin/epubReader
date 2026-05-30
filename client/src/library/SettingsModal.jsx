@@ -119,6 +119,18 @@ export default function SettingsModal({ open, onClose }) {
             </section>
           )}
 
+          <section className={styles.row}>
+            <label className={styles.label}>Vista de biblioteca</label>
+            <div className={styles.chips}>
+              <button
+                className={`${styles.chip} ${s.viewMode === 'grid' ? styles.chipActive : ''}`}
+                onClick={() => update({ viewMode: 'grid' })}>Cuadrícula</button>
+              <button
+                className={`${styles.chip} ${s.viewMode === 'list' ? styles.chipActive : ''}`}
+                onClick={() => update({ viewMode: 'list' })}>Lista</button>
+            </div>
+          </section>
+
           <p className={styles.hint}>Los cambios se aplican la próxima vez que abras un libro.</p>
         </div>
 

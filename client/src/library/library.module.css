@@ -76,6 +76,29 @@
   .grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 20px; }
 }
 
+/* List view: horizontal rows — small cover left, details right. */
+.list { display: flex; flex-direction: column; gap: 8px; }
+.list .card {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  grid-auto-rows: min-content;
+  column-gap: 12px;
+  row-gap: 2px;
+  align-items: center;
+  padding: 8px;
+  border-radius: 8px;
+}
+.list .card:hover { background: var(--card); }
+.list .cover {
+  grid-row: 1 / span 4;
+  width: 44px;
+  aspect-ratio: 2 / 3;
+  box-shadow: none;
+  align-self: center;
+}
+.list .cardTitle { -webkit-line-clamp: 1; }
+.list .selected .cover { outline-width: 2px; outline-offset: 1px; }
+
 .card {
   display: flex; flex-direction: column; gap: 8px;
   cursor: pointer;

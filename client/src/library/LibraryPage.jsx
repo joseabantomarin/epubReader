@@ -15,6 +15,7 @@ import { useAuth } from '../auth/AuthContext.jsx';
 import Toolbar from './Toolbar.jsx';
 import BookCard from './BookCard.jsx';
 import SettingsModal from './SettingsModal.jsx';
+import { loadSettings } from '../lib/readerSettings.js';
 
 export default function LibraryPage() {
   const { user, logout } = useAuth();
@@ -27,6 +28,7 @@ export default function LibraryPage() {
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState(() => new Set());
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [viewMode, setViewMode] = useState(() => loadSettings().viewMode);
   const [isFullscreen, toggleFullscreen] = useFullscreen();
   const [offline, setOffline] = useState(false);
 
@@ -199,7 +201,7 @@ export default function LibraryPage() {
             : 'No hay coincidencias.'}
         </p>
       ) : (
-        <div className={styles.grid}>
+        <div className={viewMode === 'list' ? styles.list : styles.grid}>
           {filtered.map((b) => (
             <BookCard
               key={b.id}
@@ -212,7 +214,7 @@ export default function LibraryPage() {
         </div>
       )}
 
-      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <SettingsModal open={settingsOpen} onClose={() => { setSettingsOpen(false); setViewMode(loadSettings().viewMode); }} />
 
       <hr className={styles.divider} />
       <PitchSection />
