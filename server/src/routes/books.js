@@ -232,21 +232,24 @@ export function createBooksRouter(db, dataDir) {
     const placeholders = ids.map(() => '?').join(',');
 
     if (value === 1) {
-      // Block sharing a book whose title+author already exists in the public
-      // (non-censored) shelf, to avoid duplicate shared listings.
+      // Block sharing a book that is already shared, or whose title+author
+      // already exists in the public (non-censored) shelf — avoids duplicate
+      // shared listings. Title/author compared trimmed + case-insensitive.
       const owned = db.prepare(
-        `SELECT id, title, author FROM books WHERE user_id = ? AND id IN (${placeholders})`
+        `SELECT id, title, author, shared FROM books WHERE user_id = ? AND id IN (${placeholders})`
       ).all(userId, ...ids);
       const dupStmt = db.prepare(`
         SELECT 1 FROM books
          WHERE shared = 1 AND censored = 0 AND id <> ?
-           AND title = ? AND IFNULL(author, '') = IFNULL(?, '')
+           AND LOWER(TRIM(title)) = LOWER(TRIM(?))
+           AND LOWER(TRIM(IFNULL(author, ''))) = LOWER(TRIM(IFNULL(?, '')))
          LIMIT 1
       `);
       const blocked = [];
       const toShare = [];
       for (const b of owned) {
-        if (dupStmt.get(b.id, b.title, b.author)) blocked.push({ id: b.id, title: b.title, author: b.author });
+        const isDuplicate = b.shared === 1 || !!dupStmt.get(b.id, b.title, b.author);
+        if (isDuplicate) blocked.push({ id: b.id, title: b.title, author: b.author });
         else toShare.push(b.id);
       }
       let updated = 0;

@@ -36,6 +36,8 @@ export default function LibraryPage() {
   const [offline, setOffline] = useState(false);
   const [shared, setShared] = useState([]);
   const isGuest = !user;
+  // Logged-in users get the pitch collapsed to just the tagline; guests see it open.
+  const [introOpen, setIntroOpen] = useState(isGuest);
 
   const reload = useCallback(async ({ silent = false } = {}) => {
     if (!silent) setLoading(true);
@@ -250,10 +252,21 @@ export default function LibraryPage() {
         )}
       </header>
 
-      <p className={styles.intro}>
-        Tu biblioteca personal en la nube.<br />
-        Lee EPUB y PDF desde cualquier dispositivo. Tu progreso se sincroniza automáticamente — empieza un libro en tu computadora y termínalo en el celular.
-      </p>
+      <div className={styles.intro}>
+        <button
+          className={styles.introToggle}
+          onClick={() => setIntroOpen((o) => !o)}
+          aria-expanded={introOpen}
+        >
+          Tu biblioteca personal en la nube.
+          <span className={`${styles.introChevron} ${introOpen ? styles.introChevronOpen : ''}`} aria-hidden>▾</span>
+        </button>
+        {introOpen && (
+          <p className={styles.introDetail}>
+            Lee EPUB y PDF desde cualquier dispositivo. Tu progreso se sincroniza automáticamente — empieza un libro en tu computadora y termínalo en el celular.
+          </p>
+        )}
+      </div>
 
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>Mis Libros</h2>

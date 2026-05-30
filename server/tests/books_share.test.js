@@ -58,6 +58,14 @@ describe('books share/unshare', () => {
     expect(db.prepare('SELECT shared FROM books WHERE id = ?').get(bobBook).shared).toBe(0);
   });
 
+  it('blocks re-sharing a book that is already shared', async () => {
+    const mine = insertBook(db, alice.id, 'Solaris');
+    await request(a).post('/api/books/share').set(authHeader(alice)).send({ ids: [mine] });
+    const res = await request(a).post('/api/books/share').set(authHeader(alice)).send({ ids: [mine] });
+    expect(res.body.updated).toBe(0);
+    expect(res.body.blocked.map(x => x.id)).toContain(mine);
+  });
+
   it('includes the shared field in the listing', async () => {
     const mine = insertBook(db, alice.id);
     await request(a).post('/api/books/share').set(authHeader(alice)).send({ ids: [mine] });
