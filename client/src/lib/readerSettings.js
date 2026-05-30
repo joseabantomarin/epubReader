@@ -7,6 +7,7 @@ export const DEFAULTS = {
   lineHeight: 1.3,       // 1.0–2.2
   hyphenation: true,     // split words at line end (needs lang attr)
   handedness: 'right',   // 'right' | 'left' — which side advances pages
+  viewMode: 'grid',      // 'grid' | 'list' — library layout on the main screen
 };
 
 export const FONT_FAMILIES = {

@@ -108,6 +108,59 @@ export default function ReaderPage() {
         containerRef.current.appendChild(view);
         viewRef.current = view;
 
+        // Attach annotation / selection listeners BEFORE view.open(file) so the
+        // first chapter's `load` event (fired during open) isn't missed —
+        // otherwise selectionchange listeners never get attached to that doc.
+        const { Overlayer } = await import(/* @vite-ignore */
+          new URL('/foliate-js/overlayer.js', window.location.origin).href);
+        view.addEventListener('draw-annotation', (ev) => {
+          const { draw, annotation } = ev.detail;
+          draw(Overlayer.highlight, { color: annotation?.color || '#ffd400' });
+        });
+        view.addEventListener('show-annotation', (ev) => {
+          const { value, range } = ev.detail;
+          const ann = annotationsRef.current.find(a => a.cfi === value);
+          if (!ann) return;
+          const rect = rangeToViewportRect(range);
+          if (!rect) return;
+          setSelection({ text: ann.text, cfi: ann.cfi, rect, existingId: ann.id, note: ann.note });
+        });
+        view.addEventListener('load', (e) => {
+          const doc = e.detail?.doc;
+          const index = e.detail?.index;
+          if (!doc?.documentElement) return;
+          if (!doc.documentElement.getAttribute('lang')) {
+            const raw = view.book?.metadata?.language;
+            const lang = (Array.isArray(raw) ? raw[0] : raw) || 'es';
+            doc.documentElement.setAttribute('lang', String(lang).split(/[-_]/)[0]);
+          }
+          docsRef.current.set(index, { doc, iframe: doc.defaultView?.frameElement || null });
+
+          const onSelectionChange = () => {
+            const sel = doc.getSelection();
+            if (!sel || sel.isCollapsed || sel.rangeCount === 0) {
+              setSelection((prev) => (prev?.existingId ? prev : null));
+              return;
+            }
+            const range = sel.getRangeAt(0);
+            const text = sel.toString().trim();
+            if (!text) { setSelection(null); return; }
+            const rect = rangeToViewportRect(range);
+            if (!rect) return;
+            let cfi = null;
+            try { cfi = view.getCFI(index, range); } catch {}
+            setSelection({ text, cfi, rect, existingId: null });
+          };
+          let pending = null;
+          const debouncedSelChange = () => {
+            if (pending) clearTimeout(pending);
+            pending = setTimeout(onSelectionChange, 150);
+          };
+          doc.addEventListener('selectionchange', debouncedSelChange);
+          doc.addEventListener('touchend', onSelectionChange);
+          doc.addEventListener('mouseup', onSelectionChange);
+        });
+
         await view.open(file);
         if (disposed) return;
 
@@ -180,24 +233,11 @@ export default function ReaderPage() {
         let savingEnabled = false;
         setTimeout(() => { savingEnabled = true; }, 500);
 
-        // Annotations: load existing from server, set up draw style, listen for taps.
+        // Fetch annotations from the server and paint them. Draw / show
+        // listeners were attached before view.open.
         const rawLang = view.book?.metadata?.language;
         const detectedLang = String((Array.isArray(rawLang) ? rawLang[0] : rawLang) || 'es').split(/[-_]/)[0];
         setBookLang(detectedLang);
-        const { Overlayer } = await import(/* @vite-ignore */
-          new URL('/foliate-js/overlayer.js', window.location.origin).href);
-        view.addEventListener('draw-annotation', (ev) => {
-          const { draw, annotation } = ev.detail;
-          draw(Overlayer.highlight, { color: annotation?.color || '#ffd400' });
-        });
-        view.addEventListener('show-annotation', (ev) => {
-          const { value, range } = ev.detail;
-          const ann = annotationsRef.current.find(a => a.cfi === value);
-          if (!ann) return;
-          const rect = rangeToViewportRect(range);
-          if (!rect) return;
-          setSelection({ text: ann.text, cfi: ann.cfi, rect, existingId: ann.id, note: ann.note });
-        });
         try {
           const list = await api.listAnnotations(bookId);
           if (!disposed && Array.isArray(list)) {
@@ -207,48 +247,6 @@ export default function ReaderPage() {
             }
           }
         } catch { /* offline or not yet — silent */ }
-
-        // Fallback lang on each section's document so hyphens: auto can work
-        // even when the book itself doesn't declare a language.
-        view.addEventListener('load', (e) => {
-          const doc = e.detail?.doc;
-          const index = e.detail?.index;
-          if (!doc?.documentElement) return;
-          if (!doc.documentElement.getAttribute('lang')) {
-            const raw = view.book?.metadata?.language;
-            const lang = (Array.isArray(raw) ? raw[0] : raw) || 'es';
-            doc.documentElement.setAttribute('lang', String(lang).split(/[-_]/)[0]);
-          }
-          docsRef.current.set(index, { doc, iframe: doc.defaultView?.frameElement || null });
-
-          // Watch for text selection inside the chapter iframe.
-          const onSelectionChange = () => {
-            const sel = doc.getSelection();
-            if (!sel || sel.isCollapsed || sel.rangeCount === 0) {
-              // Don't clobber an existing highlight tap — show-annotation also sets selection.
-              setSelection((prev) => (prev?.existingId ? prev : null));
-              return;
-            }
-            const range = sel.getRangeAt(0);
-            const text = sel.toString().trim();
-            if (!text) { setSelection(null); return; }
-            const rect = rangeToViewportRect(range);
-            if (!rect) return;
-            let cfi = null;
-            try { cfi = view.getCFI(index, range); } catch {}
-            setSelection({ text, cfi, rect, existingId: null });
-          };
-          // selectionchange fires often during a drag. Settle a touch after
-          // the user lifts the finger / mouse.
-          let pending = null;
-          const debouncedSelChange = () => {
-            if (pending) clearTimeout(pending);
-            pending = setTimeout(onSelectionChange, 150);
-          };
-          doc.addEventListener('selectionchange', debouncedSelChange);
-          doc.addEventListener('touchend', onSelectionChange);
-          doc.addEventListener('mouseup', onSelectionChange);
-        });
 
         view.addEventListener('relocate', (e) => {
           const fraction = typeof e.detail?.fraction === 'number' ? e.detail.fraction : null;
