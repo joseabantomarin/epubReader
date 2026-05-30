@@ -54,13 +54,22 @@ export function useReadAloud({ getView, getPageText, lang }) {
     stopRef.current = false;
     setReading(true);
     const deadline = performance.now() + minutes * 60_000;
+    let lastText = null;
     try {
       while (!stopRef.current && performance.now() < deadline) {
-        await speak(getPageText());
-        if (stopRef.current || performance.now() >= deadline) break;
+        const text = getPageText();
+        // Within a multi-page section getPageText() returns the same section
+        // text, so only read NEW content; otherwise advance pages silently
+        // until the next section loads (avoids re-reading the same section).
+        const isNew = text && text !== lastText;
+        if (isNew) {
+          await speak(text);
+          lastText = text;
+          if (stopRef.current || performance.now() >= deadline) break;
+        }
         const before = view.renderer?.start;
         await view.next();
-        await new Promise(r => setTimeout(r, 250)); // let relocate settle
+        await new Promise(r => setTimeout(r, isNew ? 200 : 60)); // let relocate settle
         if (view.renderer?.start === before) break; // end of book / no advance
       }
     } finally {
