@@ -7,3 +7,4 @@ server/data/
 *.log
 coverage/
 client/public/foliate-js/
+mislibros*.apk
