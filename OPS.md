@@ -77,6 +77,19 @@ admin debe **volver a iniciar sesión** para que su `user.isAdmin` se actualice.
 Censurar oculta el libro de la vitrina y bloquea su apertura por terceros; el dueño
 conserva acceso y lo ve marcado con la razón.
 
+## IA (Explicar con IA)
+
+La función "Explicar con IA" usa Groq. Requiere en el `.env` del servidor:
+
+```
+GROQ_API_KEY=gsk_...
+GROQ_MODEL=llama-3.1-8b-instant   # opcional
+```
+
+Sin `GROQ_API_KEY`, el endpoint `/api/ai/explain` responde 503 y el botón "IA" no
+aparece en el menú de selección. Tras añadir/cambiar la clave hay que reiniciar el
+backend (`sudo systemctl restart epubreader.service`).
+
 ## Build + publicar APK
 
 **CRÍTICO**: el APK necesita `VITE_API_BASE=https://mislibros.openlinks.app` (URL absoluta) en el build. Si queda vacío (como en el `.env` del repo, que está pensado para web), todas las llamadas a `/api/...` se quedan en `localhost` del webview de Capacitor y NADA funciona (ni login ni nada). El bundle minificado debe contener `const go="https://mislibros.openlinks.app"`.
