@@ -62,6 +62,21 @@ export NODE_ENV=production PORT=3100
 nohup /usr/bin/node src/index.js > /tmp/epub-manual.log 2>&1 &
 ```
 
+## Admin / censura de libros
+
+Los administradores (pueden censurar libros compartidos) se definen por correo en
+el `.env` del servidor:
+
+```
+ADMIN_EMAILS=joseabantomarin@gmail.com
+```
+
+Coma-separado para varios. El check es por el email del JWT (Google). Tras cambiarlo
+hay que **reiniciar el backend** (`sudo systemctl restart epubreader.service`) y el
+admin debe **volver a iniciar sesión** para que su `user.isAdmin` se actualice.
+Censurar oculta el libro de la vitrina y bloquea su apertura por terceros; el dueño
+conserva acceso y lo ve marcado con la razón.
+
 ## Build + publicar APK
 
 **CRÍTICO**: el APK necesita `VITE_API_BASE=https://mislibros.openlinks.app` (URL absoluta) en el build. Si queda vacío (como en el `.env` del repo, que está pensado para web), todas las llamadas a `/api/...` se quedan en `localhost` del webview de Capacitor y NADA funciona (ni login ni nada). El bundle minificado debe contener `const go="https://mislibros.openlinks.app"`.

@@ -63,6 +63,7 @@ export function createBooksRouter(db, dataDir) {
     const userId = req.user.sub;
     const rows = db.prepare(`
       SELECT b.id, b.title, b.author, b.cover_path, b.uploaded_at, b.format, b.shared,
+             b.censored, b.censor_reason,
              COALESCE(p.percentage, 0) AS percentage,
              p.last_read_at AS last_read_at,
              COUNT(rt.stars) AS rating_count,
@@ -82,6 +83,8 @@ export function createBooksRouter(db, dataDir) {
       author: row.author,
       format: row.format,
       shared: row.shared,
+      censored: !!row.censored,
+      censorReason: row.censor_reason || null,
       coverUrl: row.cover_path ? `/api/books/${row.id}/cover` : null,
       percentage: row.percentage,
       lastReadAt: row.last_read_at,
@@ -225,12 +228,41 @@ export function createBooksRouter(db, dataDir) {
   function setShared(req, res, value) {
     const userId = req.user.sub;
     const ids = Array.isArray(req.body?.ids) ? req.body.ids.filter(Number.isInteger) : [];
-    if (ids.length === 0) return res.json({ updated: 0 });
+    if (ids.length === 0) return res.json({ updated: 0, blocked: [] });
     const placeholders = ids.map(() => '?').join(',');
+
+    if (value === 1) {
+      // Block sharing a book whose title+author already exists in the public
+      // (non-censored) shelf, to avoid duplicate shared listings.
+      const owned = db.prepare(
+        `SELECT id, title, author FROM books WHERE user_id = ? AND id IN (${placeholders})`
+      ).all(userId, ...ids);
+      const dupStmt = db.prepare(`
+        SELECT 1 FROM books
+         WHERE shared = 1 AND censored = 0 AND id <> ?
+           AND title = ? AND IFNULL(author, '') = IFNULL(?, '')
+         LIMIT 1
+      `);
+      const blocked = [];
+      const toShare = [];
+      for (const b of owned) {
+        if (dupStmt.get(b.id, b.title, b.author)) blocked.push({ id: b.id, title: b.title, author: b.author });
+        else toShare.push(b.id);
+      }
+      let updated = 0;
+      if (toShare.length) {
+        const ph = toShare.map(() => '?').join(',');
+        updated = db.prepare(
+          `UPDATE books SET shared = 1 WHERE user_id = ? AND id IN (${ph})`
+        ).run(userId, ...toShare).changes;
+      }
+      return res.json({ updated, blocked });
+    }
+
     const result = db.prepare(
-      `UPDATE books SET shared = ? WHERE user_id = ? AND id IN (${placeholders})`
-    ).run(value, userId, ...ids);
-    res.json({ updated: result.changes });
+      `UPDATE books SET shared = 0 WHERE user_id = ? AND id IN (${placeholders})`
+    ).run(userId, ...ids);
+    res.json({ updated: result.changes, blocked: [] });
   }
 
   r.post('/share', (req, res) => setShared(req, res, 1));

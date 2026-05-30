@@ -70,6 +70,10 @@ export const api = {
     call(`/api/books/${bookId}/rating`, { method: 'PUT', body: { stars } }),
   unrateBook: (bookId) =>
     call(`/api/books/${bookId}/rating`, { method: 'DELETE' }),
+  censorBook: (bookId, reason) =>
+    call(`/api/shared/${bookId}/censor`, { method: 'POST', body: { reason } }),
+  uncensorBook: (bookId) =>
+    call(`/api/shared/${bookId}/uncensor`, { method: 'POST' }),
   getProgress: (bookId) => call(`/api/books/${bookId}/progress`),
   putProgress: (bookId, cfi, percentage, totalPages) =>
     call(`/api/books/${bookId}/progress`, {

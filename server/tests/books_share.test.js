@@ -46,6 +46,18 @@ describe('books share/unshare', () => {
     expect(db.prepare('SELECT shared FROM books WHERE id = ?').get(mine).shared).toBe(0);
   });
 
+  it('blocks sharing a book whose title+author duplicates one already shared', async () => {
+    const aliceBook = insertBook(db, alice.id, 'Dune');
+    const bobBook = insertBook(db, bob.id, 'Dune');
+    await request(a).post('/api/books/share').set(authHeader(alice)).send({ ids: [aliceBook] });
+    const res = await request(a).post('/api/books/share').set(authHeader(bob)).send({ ids: [bobBook] });
+    expect(res.status).toBe(200);
+    expect(res.body.updated).toBe(0);
+    expect(res.body.blocked).toHaveLength(1);
+    expect(res.body.blocked[0]).toMatchObject({ id: bobBook, title: 'Dune' });
+    expect(db.prepare('SELECT shared FROM books WHERE id = ?').get(bobBook).shared).toBe(0);
+  });
+
   it('includes the shared field in the listing', async () => {
     const mine = insertBook(db, alice.id);
     await request(a).post('/api/books/share').set(authHeader(alice)).send({ ids: [mine] });

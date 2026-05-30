@@ -123,6 +123,11 @@ export default function BookCard({ book, selectionMode, selected, onActivate, sh
       </div>
       <p className={styles.cardTitle}>{book.title}</p>
       <p className={styles.cardAuthor}>{book.author || '—'}</p>
+      {book.censored && (
+        <p className={styles.censoredNote} title={book.censorReason || ''}>
+          🚫 Censurado{book.censorReason ? `: ${book.censorReason}` : ''}
+        </p>
+      )}
       <div className={styles.progressBar}>
         <div className={styles.progressFill} style={{ width: percent(book.percentage) }} />
       </div>

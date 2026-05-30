@@ -169,10 +169,16 @@ export default function LibraryPage() {
     const ids = [...selectedIds];
     if (ids.length === 0) return;
     try {
-      await api.shareBooks(ids);
-      setBooks((prev) => prev.map(b => selectedIds.has(b.id) ? { ...b, shared: 1 } : b));
+      const result = await api.shareBooks(ids);
+      const blockedIds = new Set((result?.blocked || []).map(x => x.id));
+      setBooks((prev) => prev.map(b =>
+        (selectedIds.has(b.id) && !blockedIds.has(b.id)) ? { ...b, shared: 1 } : b));
       cancelSelection();
       reload({ silent: true });
+      if (result?.blocked?.length) {
+        const titles = result.blocked.map(x => `“${x.title}”`).join(', ');
+        alert(`Ya existe un libro compartido con ese título y autor: ${titles}. No se compartió de nuevo.`);
+      }
     } catch (e) { alert('Error al compartir: ' + e.message); }
   };
   const unshareSelected = async () => {
@@ -186,6 +192,16 @@ export default function LibraryPage() {
     } catch (e) { alert('Error al dejar de compartir: ' + e.message); }
   };
   const openShared = (book) => navigate(`/read/${book.id}?shared=1`);
+
+  // Admin only: censor a shared book with a reason; it disappears from the shelf.
+  const censorShared = async (book) => {
+    const reason = window.prompt(`Razón de censura para “${book.title}”:`, book.censorReason || '');
+    if (reason === null) return;
+    try {
+      await api.censorBook(book.id, reason);
+      setShared((prev) => prev.filter(b => b.id !== book.id));
+    } catch (e) { alert('No se pudo censurar: ' + (e.body?.error || e.message)); }
+  };
 
   const rateBook = async (id, stars) => {
     try {
@@ -289,7 +305,8 @@ export default function LibraryPage() {
 
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>Libros Compartidos</h2>
-        <SharedShelf books={sharedFiltered} canRate={!isGuest} onOpen={openShared} />
+        <SharedShelf books={sharedFiltered} canRate={!isGuest} onOpen={openShared}
+          isAdmin={!!user?.isAdmin} onCensor={censorShared} />
       </section>
 
       <SettingsModal open={settingsOpen} onClose={() => { setSettingsOpen(false); setViewMode(loadSettings().viewMode); }} />

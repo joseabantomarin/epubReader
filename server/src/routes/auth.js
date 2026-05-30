@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { verifyGoogleIdToken, signJwt } from '../auth.js';
+import { isAdminEmail } from '../config.js';
 
 export function createAuthRouter(db) {
   const r = Router();
@@ -31,7 +32,10 @@ export function createAuthRouter(db) {
     const token = signJwt({ sub: user.id, email: user.email });
     res.json({
       token,
-      user: { id: user.id, email: user.email, name: user.name, picture: user.picture_url },
+      user: {
+        id: user.id, email: user.email, name: user.name, picture: user.picture_url,
+        isAdmin: isAdminEmail(user.email),
+      },
     });
   });
 

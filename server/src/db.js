@@ -22,6 +22,8 @@ CREATE TABLE IF NOT EXISTS books (
   file_size     INTEGER,
   format        TEXT    NOT NULL DEFAULT 'epub',
   shared        INTEGER NOT NULL DEFAULT 0,
+  censored      INTEGER NOT NULL DEFAULT 0,
+  censor_reason TEXT,
   uploaded_at   TEXT    DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_books_user ON books(user_id);
@@ -89,6 +91,13 @@ export function openDb(filePath) {
   // Migration: add shared flag to pre-existing books.
   if (!hasColumn(db, 'books', 'shared')) {
     db.exec('ALTER TABLE books ADD COLUMN shared INTEGER NOT NULL DEFAULT 0');
+  }
+  // Migration: admin censorship state + reason.
+  if (!hasColumn(db, 'books', 'censored')) {
+    db.exec('ALTER TABLE books ADD COLUMN censored INTEGER NOT NULL DEFAULT 0');
+  }
+  if (!hasColumn(db, 'books', 'censor_reason')) {
+    db.exec('ALTER TABLE books ADD COLUMN censor_reason TEXT');
   }
   return db;
 }

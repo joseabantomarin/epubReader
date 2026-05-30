@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import path from 'node:path';
 import { authOptional } from '../middleware/authOptional.js';
+import { isAdminEmail } from '../config.js';
 import { bookPath } from '../storage.js';
 
 export function createSharedRouter(db, dataDir) {
@@ -24,9 +25,15 @@ export function createSharedRouter(db, dataDir) {
   function sharedBook(req, res) {
     const id = Number(req.params.id);
     if (!Number.isInteger(id)) { res.status(404).end(); return null; }
-    const row = db.prepare('SELECT * FROM books WHERE id = ? AND shared = 1').get(id);
+    const row = db.prepare('SELECT * FROM books WHERE id = ? AND shared = 1 AND censored = 0').get(id);
     if (!row) { res.status(404).end(); return null; }
     return row;
+  }
+
+  function requireAdmin(req, res) {
+    if (!req.user) { res.status(401).json({ error: 'auth_required' }); return false; }
+    if (!isAdminEmail(req.user.email)) { res.status(403).json({ error: 'forbidden' }); return false; }
+    return true;
   }
 
   r.get('/', (req, res) => {
@@ -41,7 +48,7 @@ export function createSharedRouter(db, dataDir) {
         JOIN users u ON u.id = b.user_id
         LEFT JOIN ratings rt ON rt.book_id = b.id
         LEFT JOIN ratings mr ON mr.book_id = b.id AND mr.user_id = ?
-       WHERE b.shared = 1
+       WHERE b.shared = 1 AND b.censored = 0
        GROUP BY b.id
        ORDER BY (COUNT(rt.stars) = 0), AVG(rt.stars) DESC, COUNT(rt.stars) DESC, b.uploaded_at DESC
     `).all(me);
@@ -97,6 +104,27 @@ export function createSharedRouter(db, dataDir) {
     if (!book) return;
     db.prepare('DELETE FROM ratings WHERE book_id = ? AND user_id = ?').run(book.id, req.user.sub);
     res.json(aggregate(book.id, req.user.sub));
+  });
+
+  // Admin-only: censor a book (hides it from the shelf and blocks others from
+  // opening it; the owner keeps access but sees it marked with the reason).
+  r.post('/:id/censor', (req, res) => {
+    if (!requireAdmin(req, res)) return;
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) return res.status(404).end();
+    const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim() : '';
+    const book = db.prepare('SELECT id FROM books WHERE id = ?').get(id);
+    if (!book) return res.status(404).end();
+    db.prepare('UPDATE books SET censored = 1, censor_reason = ? WHERE id = ?').run(reason || null, id);
+    res.json({ ok: true, id, censored: true, censorReason: reason || null });
+  });
+
+  r.post('/:id/uncensor', (req, res) => {
+    if (!requireAdmin(req, res)) return;
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) return res.status(404).end();
+    db.prepare('UPDATE books SET censored = 0, censor_reason = NULL WHERE id = ?').run(id);
+    res.json({ ok: true, id, censored: false });
   });
 
   return r;

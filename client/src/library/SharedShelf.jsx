@@ -5,7 +5,8 @@ import StarRating from './StarRating.jsx';
 import { api } from '../lib/api.js';
 
 // books: lista de /api/shared (ya filtrada de "mine"). canRate: hay sesión.
-export default function SharedShelf({ books, canRate, onOpen }) {
+// isAdmin: muestra el botón de censura. onCensor(book): lo censura.
+export default function SharedShelf({ books, canRate, onOpen, isAdmin, onCensor }) {
   const [ratings, setRatings] = useState({}); // id -> { avgStars, ratingCount, myStars }
 
   const merged = (b) => ({ ...b, ...(ratings[b.id] || {}) });
@@ -43,6 +44,11 @@ export default function SharedShelf({ books, canRate, onOpen }) {
               onRate={(s) => rate(b.id, s)}
               onClear={() => clear(b.id)}
             />
+            {isAdmin && (
+              <button className={styles.censorBtn} onClick={() => onCensor?.(b)}>
+                Censurar
+              </button>
+            )}
           </div>
         );
       })}

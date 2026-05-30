@@ -235,6 +235,25 @@
 
 .sharedItem { display: flex; flex-direction: column; }
 .sharedBy { font-size: 0.75rem; color: #6b7280; margin: 4px 0 0; }
+.censorBtn {
+  margin-top: 6px;
+  align-self: flex-start;
+  background: transparent;
+  border: 1px solid #c0382d;
+  color: #c0382d;
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+.censorBtn:hover { background: #c0382d; color: #fff; }
+.censoredNote {
+  margin: 2px 0 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: #c0382d;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 
 .intro {
   margin: 0 0 8px;

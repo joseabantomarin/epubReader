@@ -17,4 +17,11 @@ export const config = {
   nodeEnv: process.env.NODE_ENV || 'development',
   clientOrigin: process.env.CLIENT_ORIGIN || 'http://localhost:5173',
   maxUploadMb: Number(process.env.MAX_UPLOAD_MB || 50),
+  // Comma-separated emails that may censor shared books.
+  adminEmails: (process.env.ADMIN_EMAILS || '')
+    .split(',').map(s => s.trim().toLowerCase()).filter(Boolean),
 };
+
+export function isAdminEmail(email) {
+  return !!email && config.adminEmails.includes(String(email).toLowerCase());
+}

@@ -7,6 +7,7 @@ import path from 'node:path';
 import { makeDb, insertUser, authHeader } from './helpers.js';
 import { createSharedRouter } from '../src/routes/shared.js';
 import { ensureUserDir, bookPath } from '../src/storage.js';
+import { config } from '../src/config.js';
 
 process.env.NODE_ENV = 'test';
 
@@ -118,5 +119,49 @@ describe('shared ratings', () => {
     await request(a).put(`/api/shared/${id}/rating`).set(authHeader(bob)).send({ stars: 4 });
     const res = await request(a).delete(`/api/shared/${id}/rating`).set(authHeader(bob));
     expect(res.body).toMatchObject({ avgStars: null, ratingCount: 0, myStars: null });
+  });
+});
+
+describe('admin censorship', () => {
+  let db, dataDir, alice, admin, a;
+  beforeEach(() => {
+    db = makeDb();
+    dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'shared-'));
+    alice = insertUser(db, { email: 'alice@x.com', name: 'Alice' });
+    admin = insertUser(db, { email: 'admin@x.com', name: 'Admin' });
+    config.adminEmails.push('admin@x.com');
+    a = app(db, dataDir);
+  });
+  afterEach(() => {
+    fs.rmSync(dataDir, { recursive: true, force: true });
+    config.adminEmails.length = 0;
+  });
+
+  it('lets an admin censor a book, hiding it from the shelf with a reason', async () => {
+    const id = insertBook(db, alice.id, { shared: 1 });
+    const res = await request(a).post(`/api/shared/${id}/censor`)
+      .set(authHeader(admin)).send({ reason: 'Contenido infractor' });
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ censored: true, censorReason: 'Contenido infractor' });
+    const row = db.prepare('SELECT censored, censor_reason FROM books WHERE id = ?').get(id);
+    expect(row).toMatchObject({ censored: 1, censor_reason: 'Contenido infractor' });
+    // Hidden from the public shelf and not openable by others.
+    expect((await request(a).get('/api/shared')).body).toHaveLength(0);
+    expect((await request(a).get(`/api/shared/${id}/file`)).status).toBe(404);
+  });
+
+  it('forbids non-admins from censoring (403)', async () => {
+    const id = insertBook(db, alice.id, { shared: 1 });
+    const res = await request(a).post(`/api/shared/${id}/censor`)
+      .set(authHeader(alice)).send({ reason: 'nope' });
+    expect(res.status).toBe(403);
+  });
+
+  it('lets an admin uncensor, returning it to the shelf', async () => {
+    const id = insertBook(db, alice.id, { shared: 1 });
+    await request(a).post(`/api/shared/${id}/censor`).set(authHeader(admin)).send({ reason: 'x' });
+    const res = await request(a).post(`/api/shared/${id}/uncensor`).set(authHeader(admin));
+    expect(res.status).toBe(200);
+    expect((await request(a).get('/api/shared')).body).toHaveLength(1);
   });
 });
