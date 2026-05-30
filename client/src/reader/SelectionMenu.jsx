@@ -12,7 +12,7 @@ export default function SelectionMenu({
   const [adj, setAdj] = useState(null);
 
   useLayoutEffect(() => {
-    if (!pos || !ref.current) return;
+    if (!pos || !ref.current) { setAdj(null); return; }
     const el = ref.current;
     const w = el.offsetWidth;
     const h = el.offsetHeight;
