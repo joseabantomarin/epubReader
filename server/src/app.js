@@ -14,6 +14,7 @@ import { createProgressRouter } from './routes/progress.js';
 import { createAnnotationsRouter } from './routes/annotations.js';
 import { createSharedRouter } from './routes/shared.js';
 import { createAIRouter } from './routes/ai.js';
+import { createGroupsRouter } from './routes/groups.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -76,6 +77,7 @@ export function createApp(options = {}) {
   app.use('/api/books', createProgressRouter(db));
   app.use('/api/books', createAnnotationsRouter(db));
   app.use('/api/shared', createSharedRouter(db, dataDir));
+  app.use('/api/groups', createGroupsRouter(db));
 
   if (!isTest) {
     app.use('/api/ai', rateLimit({ windowMs: 60_000, max: 20 }));
