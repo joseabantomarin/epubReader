@@ -61,7 +61,7 @@ export default function PitchSection() {
               <span className={styles.method}>Yape (Perú)</span>
               <img
                 className={styles.qr}
-                src="/yape-qr.jpeg"
+                src="/yape-qr.png"
                 alt="Código QR de Yape — Jose Roberto Abanto Marin"
               />
               <span className={styles.qrHint}>Escanéalo desde otro dispositivo con la app Yape.</span>
