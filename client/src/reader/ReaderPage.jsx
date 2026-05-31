@@ -233,6 +233,17 @@ export default function ReaderPage() {
 
         // Apply reader settings as CSS injected into the rendition.
         const settings = loadSettings();
+
+        // Page-turn transition mode (read once at open, like the other settings).
+        const pageTransition = settings.pageTransition || 'slide';
+        if (containerRef.current) containerRef.current.dataset.transition = pageTransition;
+        if (pageTransition === 'slide') {
+          // Native foliate column-scroll animation, uniform across buttons/keys/swipe.
+          try { view.renderer?.setAttribute('animated', ''); } catch {}
+        } else {
+          // Fade: keep scrolling instant; fade the view in on each relocate.
+          view.style.transition = 'opacity 180ms ease';
+        }
         const themeColors = resolveTheme(settings.theme);
         const fontFamily = FONT_FAMILIES[settings.fontFamily] || FONT_FAMILIES.system;
         const hyphenCss = settings.hyphenation
@@ -294,6 +305,9 @@ export default function ReaderPage() {
         // TOC jumps — all of them go through the relocate event.
         let savingEnabled = false;
         setTimeout(() => { savingEnabled = true; }, 500);
+        // Gate the fade so the initial render / position-restore doesn't flash.
+        let fadeReady = false;
+        setTimeout(() => { fadeReady = true; }, 500);
 
         // Fetch annotations from the server and paint them. Draw / show
         // listeners were attached before view.open.
@@ -313,6 +327,10 @@ export default function ReaderPage() {
         }
 
         view.addEventListener('relocate', (e) => {
+          if (pageTransition === 'fade' && fadeReady) {
+            view.style.opacity = '0';
+            requestAnimationFrame(() => { view.style.opacity = '1'; });
+          }
           const fraction = typeof e.detail?.fraction === 'number' ? e.detail.fraction : null;
           const cfi = e.detail?.cfi;
           const loc = e.detail?.location;
