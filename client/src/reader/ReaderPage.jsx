@@ -111,9 +111,12 @@ export default function ReaderPage() {
         const serverProgress = isShared ? null : await api.getProgress(bookId).catch(() => null);
         const progress = serverProgress || getProgressLocal(bookId);
         if (!buf) {
+          // Send the token whenever we have one — public books open without it,
+          // but group/individual shares require it (access is checked server-side).
+          const authToken = getToken();
           const fileRes = await fetch(
             isShared ? sharedFileUrl(bookId) : bookFileUrl(bookId),
-            isShared ? {} : { headers: { Authorization: `Bearer ${getToken()}` } },
+            authToken ? { headers: { Authorization: `Bearer ${authToken}` } } : {},
           );
           if (!fileRes.ok) throw new Error('No se pudo cargar el libro');
           buf = await fileRes.arrayBuffer();

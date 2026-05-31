@@ -69,8 +69,11 @@ export default function BookCard({ book, selectionMode, selected, onActivate, sh
       const cached = await getCover(book.id);
       if (cached) { show(cached); return; }
       try {
+        // Send the token when we have one: public covers load without it, but
+        // group/individual shares are access-checked server-side and need it.
         const url = shared ? sharedCoverUrl(book.id) : bookCoverUrl(book.id);
-        const headers = shared ? {} : { Authorization: `Bearer ${getToken()}` };
+        const token = getToken();
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
         const res = await fetch(url, { headers });
         if (!res.ok) return;
         const blob = await res.blob();
