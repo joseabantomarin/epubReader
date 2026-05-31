@@ -278,6 +278,10 @@ export default function ReaderPage() {
           catch { if (progress.cfi) await view.goTo(progress.cfi); }
         } else if (progress?.cfi) {
           await view.goTo(progress.cfi);
+        } else {
+          // New book with no saved position: open() doesn't render any page, so
+          // land on the first section (page 1 / the cover) instead of a blank.
+          try { await view.goTo(0); } catch {}
         }
 
         setLoading(false);
