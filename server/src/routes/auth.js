@@ -2,6 +2,14 @@ import { Router } from 'express';
 import { verifyGoogleIdToken, signJwt } from '../auth.js';
 import { isAdminEmail } from '../config.js';
 
+// When a user logs in, attach any pending group invitations addressed to their
+// email (rows inserted before they had an account).
+export function linkPendingMemberships(db, userId, email) {
+  db.prepare(
+    'UPDATE group_members SET user_id = ? WHERE user_id IS NULL AND LOWER(email) = LOWER(?)'
+  ).run(userId, email);
+}
+
 export function createAuthRouter(db) {
   const r = Router();
 
@@ -28,6 +36,8 @@ export function createAuthRouter(db) {
         .run(g.email, g.name, g.picture, user.id);
       user = db.prepare('SELECT * FROM users WHERE id = ?').get(user.id);
     }
+
+    linkPendingMemberships(db, user.id, user.email);
 
     const token = signJwt({ sub: user.id, email: user.email });
     res.json({
