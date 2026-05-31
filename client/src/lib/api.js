@@ -60,8 +60,18 @@ export const api = {
   },
   deleteBooks: (ids) => call('/api/books', { method: 'DELETE', body: { ids } }),
   listShared: () => call('/api/shared'),
-  shareBooks: (ids) => call('/api/books/share', { method: 'POST', body: { ids } }),
+  shareBooks: (ids, visibility = 'public', extra = {}) =>
+    call('/api/books/share', { method: 'POST', body: { ids, visibility, ...extra } }),
   unshareBooks: (ids) => call('/api/books/unshare', { method: 'POST', body: { ids } }),
+  listSharedWithMe: () => call('/api/shared/with-me'),
+  listGroups: () => call('/api/groups'),
+  getGroup: (id) => call(`/api/groups/${id}`),
+  createGroup: (name) => call('/api/groups', { method: 'POST', body: { name } }),
+  renameGroup: (id, name) => call(`/api/groups/${id}`, { method: 'PATCH', body: { name } }),
+  deleteGroup: (id) => call(`/api/groups/${id}`, { method: 'DELETE' }),
+  addGroupMember: (id, email) => call(`/api/groups/${id}/members`, { method: 'POST', body: { email } }),
+  removeGroupMember: (id, memberId) => call(`/api/groups/${id}/members/${memberId}`, { method: 'DELETE' }),
+  leaveGroup: (id) => call(`/api/groups/${id}/leave`, { method: 'POST' }),
   rateShared: (bookId, stars) =>
     call(`/api/shared/${bookId}/rating`, { method: 'PUT', body: { stars } }),
   unrateShared: (bookId) =>
