@@ -168,7 +168,7 @@
 }
 
 .paypalBlock {
-  padding: 12px 20px 24px;
+  padding: 12px 20px 32px;
   margin-top: 6px;
   border-top: 1px solid var(--border);
 }
