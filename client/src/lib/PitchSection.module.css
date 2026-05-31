@@ -68,3 +68,120 @@
   color: white;
   transform: translateY(-1px);
 }
+
+/* "Apóyanos voluntariamente" — same pill as .siteLink, in green. It opens a
+   modal (no navigation), so it's a <button>, not an <a>. */
+.supportLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--support);
+  background: var(--card);
+  border: 1.5px solid var(--support);
+  font-size: 15px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 11px 22px;
+  border-radius: 999px;
+  letter-spacing: 0.2px;
+  transition: background .15s, color .15s, transform .15s;
+}
+.supportLink:hover {
+  background: var(--support);
+  color: white;
+  transform: translateY(-1px);
+}
+
+/* Support modal */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  z-index: 100;
+  animation: fadeIn 0.15s ease;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.modal {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+  width: 100%;
+  max-width: 360px;
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  text-align: center;
+}
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.modalTitle { margin: 0; font-size: 17px; font-weight: 700; }
+.modalClose {
+  background: transparent;
+  border: none;
+  font-size: 28px;
+  line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 4px 8px;
+}
+.modalClose:hover { color: var(--fg); }
+.modalIntro {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 16px 20px 4px;
+}
+
+.method {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--support);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 10px;
+}
+.qrBlock { padding: 18px 20px 8px; }
+.qr {
+  display: block;
+  width: 100%;
+  max-width: 240px;
+  height: auto;
+  margin: 0 auto;
+  border-radius: 12px;
+}
+.qrHint {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 10px;
+}
+
+.paypalBlock {
+  padding: 12px 20px 24px;
+  margin-top: 6px;
+  border-top: 1px solid var(--border);
+}
+.paypalBlock .method { margin-top: 16px; }
+.paypalBtn {
+  display: inline-block;
+  background: var(--support);
+  color: white;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 14px;
+  padding: 10px 24px;
+  border-radius: 999px;
+  transition: filter .15s;
+}
+.paypalBtn:hover { filter: brightness(1.08); }
