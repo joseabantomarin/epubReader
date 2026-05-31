@@ -37,6 +37,7 @@ export default function LibraryPage() {
   const [isFullscreen, toggleFullscreen] = useFullscreen();
   const [offline, setOffline] = useState(false);
   const [shared, setShared] = useState([]);
+  const [sharedWithMe, setSharedWithMe] = useState([]);
   const isGuest = !user;
   // Pitch: expanded for guests, collapsed once logged in. Re-synced on
   // login/logout so logging in within the same session also collapses it.
@@ -84,6 +85,12 @@ export default function LibraryPage() {
       const sh = await api.listShared();
       setShared(sh.filter((b) => !b.mine));
     } catch { /* sin red: vitrina vacía */ }
+    if (!isGuest) {
+      try {
+        const swm = await api.listSharedWithMe();
+        setSharedWithMe(swm);
+      } catch { setSharedWithMe([]); }
+    }
   }, [user]);
 
   useEffect(() => { reload(); }, [reload]);
@@ -316,6 +323,14 @@ export default function LibraryPage() {
         <SharedShelf books={sharedFiltered} canRate={!isGuest} onOpen={openShared}
           isAdmin={!!user?.isAdmin} onCensor={censorShared} />
       </section>
+
+      {!isGuest && sharedWithMe.length > 0 && (
+        <section className={styles.section}>
+          <h2 className={styles.sectionTitle}>Compartido conmigo</h2>
+          <SharedShelf books={sharedWithMe} canRate={false}
+            onOpen={openShared} />
+        </section>
+      )}
 
       <SettingsModal open={settingsOpen} onClose={() => { setSettingsOpen(false); setViewMode(loadSettings().viewMode); }} />
 
