@@ -3,8 +3,8 @@ import styles from './annotations.module.css';
 import { api } from '../lib/api.js';
 
 // Shows a Groq explanation of the given text. `text` non-null = open.
-// The book title/author frame the selection so the AI has context, and we ask
-// it to fall back to a plain definition when the passage is too short.
+// A short selection (1-2 words) is treated as a word to define; anything longer
+// is treated as a passage to explain, framed with the book's title/author.
 export default function AIExplainModal({ text, title, author, onClose }) {
   const [state, setState] = useState({ loading: true, error: null, explanation: '' });
 
@@ -12,10 +12,14 @@ export default function AIExplainModal({ text, title, author, onClose }) {
     if (!text) return;
     let cancelled = false;
     setState({ loading: true, error: null, explanation: '' });
-    const head = author
-      ? `Qué podrías decirme de este pasaje del libro: ${title} del autor ${author}`
-      : `Qué podrías decirme de este pasaje del libro: ${title}`;
-    const query = `${head} "${text}", y en caso de no tener mucho contexto me podrías dar solamente la definición de la palabra?`;
+    const wordCount = text.trim().split(/\s+/).filter(Boolean).length;
+    let query;
+    if (wordCount <= 2) {
+      query = `Define esto: ${text}`;
+    } else {
+      const book = author ? `del libro ${title} del autor ${author}` : `del libro ${title}`;
+      query = `Explica este pasaje ${book}: ${text}`;
+    }
     (async () => {
       try {
         const { explanation } = await api.explainWithAI(query);
