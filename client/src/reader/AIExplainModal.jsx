@@ -3,8 +3,9 @@ import styles from './annotations.module.css';
 import { api } from '../lib/api.js';
 
 // Shows a Groq explanation of the given text. `text` non-null = open.
-// We frame the selection with the book's title/author and let the model decide:
-// explain the passage, or just define the word(s) when there's little context.
+// The model explains the fragment from the text itself (the book/author are just
+// light context), and falls back to defining the word(s) when there's too little
+// context. It's told not to disclaim about (not) knowing the book.
 export default function AIExplainModal({ text, title, author, onClose }) {
   const [state, setState] = useState({ loading: true, error: null, explanation: '' });
 
@@ -12,10 +13,8 @@ export default function AIExplainModal({ text, title, author, onClose }) {
     if (!text) return;
     let cancelled = false;
     setState({ loading: true, error: null, explanation: '' });
-    const head = author
-      ? `Qué podrías decirme de este pasaje del libro: ${title} del autor ${author}`
-      : `Qué podrías decirme de este pasaje del libro: ${title}`;
-    const query = `${head} "${text}", y en caso de no tener mucho contexto me podrías dar solamente la definición de la(s) palabra(s)?`;
+    const ref = author ? `(del libro «${title}» de ${author})` : `(del libro «${title}»)`;
+    const query = `Explica de forma breve y clara el siguiente fragmento ${ref}, basándote únicamente en el propio texto. Si el fragmento es demasiado corto o no aporta contexto suficiente, limítate a dar la definición de la(s) palabra(s). No menciones si conoces o no el libro. Fragmento: «${text}»`;
     (async () => {
       try {
         const { explanation } = await api.explainWithAI(query);
