@@ -778,7 +778,7 @@ export default function ReaderPage() {
         lang={bookLang}
         onClose={() => { setDictTerm(null); clearSelection(); }}
       />
-      <AIExplainModal text={aiText} onClose={() => { setAiText(null); clearSelection(); }} />
+      <AIExplainModal text={aiText} title={title} author={author} onClose={() => { setAiText(null); clearSelection(); }} />
       <ReadAloudDialog
         open={readDialogOpen}
         maxPages={maxPages}

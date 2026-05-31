@@ -3,23 +3,27 @@ import styles from './annotations.module.css';
 import { api } from '../lib/api.js';
 
 // Shows a Groq explanation of the given text. `text` non-null = open.
-export default function AIExplainModal({ text, onClose }) {
+// The book title/author are prepended so the AI has context about the source:
+// "Libro <título> <autor>: <texto seleccionado>".
+export default function AIExplainModal({ text, title, author, onClose }) {
   const [state, setState] = useState({ loading: true, error: null, explanation: '' });
 
   useEffect(() => {
     if (!text) return;
     let cancelled = false;
     setState({ loading: true, error: null, explanation: '' });
+    const context = ['Libro', title, author].filter(Boolean).join(' ');
+    const query = `${context}: ${text}`;
     (async () => {
       try {
-        const { explanation } = await api.explainWithAI(text);
+        const { explanation } = await api.explainWithAI(query);
         if (!cancelled) setState({ loading: false, error: null, explanation });
       } catch (e) {
         if (!cancelled) setState({ loading: false, error: 'No se pudo consultar la IA.', explanation: '' });
       }
     })();
     return () => { cancelled = true; };
-  }, [text]);
+  }, [text, title, author]);
 
   if (!text) return null;
   return (
