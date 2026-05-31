@@ -132,5 +132,10 @@ export function sharedFileUrl(bookId) {
   return `${BASE}/api/shared/${bookId}/file`;
 }
 export function sharedCoverUrl(bookId) {
-  return `${BASE}/api/shared/${bookId}/cover`;
+  // Pass the token as a query param so this works in a plain <img src> too:
+  // group/individual covers are access-checked server-side. Public covers are
+  // served fine with no token. (authOptional reads ?_t=.)
+  const token = getToken();
+  const q = token ? `?_t=${encodeURIComponent(token)}` : '';
+  return `${BASE}/api/shared/${bookId}/cover${q}`;
 }

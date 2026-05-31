@@ -140,8 +140,8 @@ export function createGroupsRouter(db) {
     const g = ownedGroup(req, res);
     if (!g) return;
     const memberId = Number(req.params.memberId);
-    db.prepare('DELETE FROM group_members WHERE id = ? AND group_id = ?').run(memberId, g.id);
-    res.json({ removed: 1 });
+    const result = db.prepare('DELETE FROM group_members WHERE id = ? AND group_id = ?').run(memberId, g.id);
+    res.json({ removed: result.changes });
   });
 
   r.post('/:id/leave', (req, res) => {
