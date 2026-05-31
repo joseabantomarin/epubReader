@@ -59,6 +59,26 @@ CREATE TABLE IF NOT EXISTS ratings (
   PRIMARY KEY (book_id, user_id)
 );
 CREATE INDEX IF NOT EXISTS idx_ratings_book ON ratings(book_id);
+
+CREATE TABLE IF NOT EXISTS groups (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  owner_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name        TEXT    NOT NULL,
+  created_at  TEXT    DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_groups_owner ON groups(owner_id);
+
+CREATE TABLE IF NOT EXISTS group_members (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  group_id    INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+  user_id     INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  email       TEXT    NOT NULL,
+  created_at  TEXT    DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (group_id, email)
+);
+CREATE INDEX IF NOT EXISTS idx_group_members_group ON group_members(group_id);
+CREATE INDEX IF NOT EXISTS idx_group_members_user ON group_members(user_id);
+CREATE INDEX IF NOT EXISTS idx_group_members_email ON group_members(email);
 `;
 
 function hasColumn(db, table, column) {
@@ -98,6 +118,17 @@ export function openDb(filePath) {
   }
   if (!hasColumn(db, 'books', 'censor_reason')) {
     db.exec('ALTER TABLE books ADD COLUMN censor_reason TEXT');
+  }
+  // Migration: per-book visibility (private | public | group | user).
+  if (!hasColumn(db, 'books', 'visibility')) {
+    db.exec("ALTER TABLE books ADD COLUMN visibility TEXT NOT NULL DEFAULT 'private'");
+    db.exec("UPDATE books SET visibility = 'public' WHERE shared = 1");
+  }
+  if (!hasColumn(db, 'books', 'share_group_id')) {
+    db.exec('ALTER TABLE books ADD COLUMN share_group_id INTEGER');
+  }
+  if (!hasColumn(db, 'books', 'share_user_id')) {
+    db.exec('ALTER TABLE books ADD COLUMN share_user_id INTEGER');
   }
   return db;
 }
