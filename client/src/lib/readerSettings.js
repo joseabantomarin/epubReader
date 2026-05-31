@@ -8,6 +8,7 @@ export const DEFAULTS = {
   hyphenation: true,     // split words at line end (needs lang attr)
   handedness: 'right',   // 'right' | 'left' — which side advances pages
   viewMode: 'grid',      // 'grid' | 'list' — library layout on the main screen
+  pageTransition: 'slide', // 'slide' (deslizar con sombra) | 'fade' (desvanecido)
 };
 
 export const FONT_FAMILIES = {
