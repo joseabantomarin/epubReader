@@ -8,3 +8,6 @@ server/data/
 coverage/
 client/public/foliate-js/
 mislibros*.apk
+
+# Superpowers brainstorming visual companion
+.superpowers/
