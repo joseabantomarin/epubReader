@@ -3,8 +3,8 @@ import styles from './annotations.module.css';
 import { api } from '../lib/api.js';
 
 // Shows a Groq explanation of the given text. `text` non-null = open.
-// The book title/author are prepended so the AI has context about the source:
-// "Libro <título> <autor>: <texto seleccionado>".
+// The book title/author frame the selection so the AI has context, and we ask
+// it to fall back to a plain definition when the passage is too short.
 export default function AIExplainModal({ text, title, author, onClose }) {
   const [state, setState] = useState({ loading: true, error: null, explanation: '' });
 
@@ -12,8 +12,10 @@ export default function AIExplainModal({ text, title, author, onClose }) {
     if (!text) return;
     let cancelled = false;
     setState({ loading: true, error: null, explanation: '' });
-    const context = ['Libro', title, author].filter(Boolean).join(' ');
-    const query = `${context}: ${text}`;
+    const head = author
+      ? `Qué podrías decirme de este pasaje del libro: ${title} del autor ${author}`
+      : `Qué podrías decirme de este pasaje del libro: ${title}`;
+    const query = `${head} "${text}", y en caso de no tener mucho contexto me podrías dar solamente la definición de la palabra?`;
     (async () => {
       try {
         const { explanation } = await api.explainWithAI(query);
