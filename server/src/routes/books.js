@@ -63,6 +63,7 @@ export function createBooksRouter(db, dataDir) {
     const userId = req.user.sub;
     const rows = db.prepare(`
       SELECT b.id, b.title, b.author, b.cover_path, b.uploaded_at, b.format, b.shared,
+             b.visibility, b.share_group_id, b.share_user_id,
              b.censored, b.censor_reason,
              COALESCE(p.percentage, 0) AS percentage,
              p.last_read_at AS last_read_at,
@@ -83,6 +84,9 @@ export function createBooksRouter(db, dataDir) {
       author: row.author,
       format: row.format,
       shared: row.shared,
+      visibility: row.visibility,
+      shareGroupId: row.share_group_id,
+      shareUserId: row.share_user_id,
       censored: !!row.censored,
       censorReason: row.censor_reason || null,
       coverUrl: row.cover_path ? `/api/books/${row.id}/cover` : null,
@@ -225,51 +229,86 @@ export function createBooksRouter(db, dataDir) {
     res.json({ deleted });
   });
 
-  function setShared(req, res, value) {
+  // Mark a set of owned books public, applying the duplicate-block rule.
+  function sharePublic(userId, ids) {
+    const placeholders = ids.map(() => '?').join(',');
+    const owned = db.prepare(
+      `SELECT id, title, author FROM books WHERE user_id = ? AND id IN (${placeholders})`
+    ).all(userId, ...ids);
+    const dupStmt = db.prepare(`
+      SELECT 1 FROM books
+       WHERE visibility = 'public' AND censored = 0 AND id <> ?
+         AND LOWER(TRIM(title)) = LOWER(TRIM(?))
+         AND LOWER(TRIM(IFNULL(author, ''))) = LOWER(TRIM(IFNULL(?, '')))
+       LIMIT 1
+    `);
+    const blocked = [];
+    const toShare = [];
+    for (const b of owned) {
+      const isPublicDup = db.prepare("SELECT visibility FROM books WHERE id = ?").get(b.id).visibility === 'public';
+      if (isPublicDup || !!dupStmt.get(b.id, b.title, b.author)) {
+        blocked.push({ id: b.id, title: b.title, author: b.author });
+      } else toShare.push(b.id);
+    }
+    let updated = 0;
+    if (toShare.length) {
+      const ph = toShare.map(() => '?').join(',');
+      updated = db.prepare(
+        `UPDATE books SET visibility='public', shared=1, share_group_id=NULL, share_user_id=NULL
+          WHERE user_id = ? AND id IN (${ph})`
+      ).run(userId, ...toShare).changes;
+    }
+    return { updated, blocked };
+  }
+
+  r.post('/share', (req, res) => {
+    const userId = req.user.sub;
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids.filter(Number.isInteger) : [];
+    const visibility = req.body?.visibility;
+    if (ids.length === 0) return res.json({ updated: 0, blocked: [] });
+    const placeholders = ids.map(() => '?').join(',');
+
+    if (visibility === 'public') {
+      return res.json(sharePublic(userId, ids));
+    }
+
+    if (visibility === 'group') {
+      const groupId = Number(req.body?.targetId);
+      const g = db.prepare('SELECT owner_id FROM groups WHERE id = ?').get(groupId);
+      if (!g) return res.status(404).json({ error: 'group_not_found' });
+      if (g.owner_id !== userId) return res.status(403).json({ error: 'forbidden' });
+      const updated = db.prepare(
+        `UPDATE books SET visibility='group', share_group_id=?, share_user_id=NULL, shared=0
+          WHERE user_id = ? AND id IN (${placeholders})`
+      ).run(groupId, userId, ...ids).changes;
+      return res.json({ updated, blocked: [] });
+    }
+
+    if (visibility === 'user') {
+      const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+      const target = email ? db.prepare('SELECT id FROM users WHERE LOWER(email) = ?').get(email) : null;
+      if (!target) return res.status(404).json({ error: 'user_not_found' });
+      const updated = db.prepare(
+        `UPDATE books SET visibility='user', share_user_id=?, share_group_id=NULL, shared=0
+          WHERE user_id = ? AND id IN (${placeholders})`
+      ).run(target.id, userId, ...ids).changes;
+      return res.json({ updated, blocked: [] });
+    }
+
+    return res.status(400).json({ error: 'invalid_visibility' });
+  });
+
+  r.post('/unshare', (req, res) => {
     const userId = req.user.sub;
     const ids = Array.isArray(req.body?.ids) ? req.body.ids.filter(Number.isInteger) : [];
     if (ids.length === 0) return res.json({ updated: 0, blocked: [] });
     const placeholders = ids.map(() => '?').join(',');
-
-    if (value === 1) {
-      // Block sharing a book that is already shared, or whose title+author
-      // already exists in the public (non-censored) shelf — avoids duplicate
-      // shared listings. Title/author compared trimmed + case-insensitive.
-      const owned = db.prepare(
-        `SELECT id, title, author, shared FROM books WHERE user_id = ? AND id IN (${placeholders})`
-      ).all(userId, ...ids);
-      const dupStmt = db.prepare(`
-        SELECT 1 FROM books
-         WHERE shared = 1 AND censored = 0 AND id <> ?
-           AND LOWER(TRIM(title)) = LOWER(TRIM(?))
-           AND LOWER(TRIM(IFNULL(author, ''))) = LOWER(TRIM(IFNULL(?, '')))
-         LIMIT 1
-      `);
-      const blocked = [];
-      const toShare = [];
-      for (const b of owned) {
-        const isDuplicate = b.shared === 1 || !!dupStmt.get(b.id, b.title, b.author);
-        if (isDuplicate) blocked.push({ id: b.id, title: b.title, author: b.author });
-        else toShare.push(b.id);
-      }
-      let updated = 0;
-      if (toShare.length) {
-        const ph = toShare.map(() => '?').join(',');
-        updated = db.prepare(
-          `UPDATE books SET shared = 1 WHERE user_id = ? AND id IN (${ph})`
-        ).run(userId, ...toShare).changes;
-      }
-      return res.json({ updated, blocked });
-    }
-
     const result = db.prepare(
-      `UPDATE books SET shared = 0 WHERE user_id = ? AND id IN (${placeholders})`
+      `UPDATE books SET visibility='private', shared=0, share_group_id=NULL, share_user_id=NULL
+        WHERE user_id = ? AND id IN (${placeholders})`
     ).run(userId, ...ids);
     res.json({ updated: result.changes, blocked: [] });
-  }
-
-  r.post('/share', (req, res) => setShared(req, res, 1));
-  r.post('/unshare', (req, res) => setShared(req, res, 0));
+  });
 
   function getOwnedBook(req, res) {
     const id = Number(req.params.id);

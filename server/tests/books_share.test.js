@@ -31,7 +31,7 @@ describe('books share/unshare', () => {
     const mine = insertBook(db, alice.id);
     const hers = insertBook(db, bob.id);
     const res = await request(a).post('/api/books/share')
-      .set(authHeader(alice)).send({ ids: [mine, hers] });
+      .set(authHeader(alice)).send({ ids: [mine, hers], visibility: 'public' });
     expect(res.status).toBe(200);
     expect(res.body.updated).toBe(1);
     expect(db.prepare('SELECT shared FROM books WHERE id = ?').get(mine).shared).toBe(1);
@@ -40,7 +40,7 @@ describe('books share/unshare', () => {
 
   it('unshares owned books', async () => {
     const mine = insertBook(db, alice.id);
-    await request(a).post('/api/books/share').set(authHeader(alice)).send({ ids: [mine] });
+    await request(a).post('/api/books/share').set(authHeader(alice)).send({ ids: [mine], visibility: 'public' });
     const res = await request(a).post('/api/books/unshare').set(authHeader(alice)).send({ ids: [mine] });
     expect(res.body.updated).toBe(1);
     expect(db.prepare('SELECT shared FROM books WHERE id = ?').get(mine).shared).toBe(0);
@@ -49,8 +49,8 @@ describe('books share/unshare', () => {
   it('blocks sharing a book whose title+author duplicates one already shared', async () => {
     const aliceBook = insertBook(db, alice.id, 'Dune');
     const bobBook = insertBook(db, bob.id, 'Dune');
-    await request(a).post('/api/books/share').set(authHeader(alice)).send({ ids: [aliceBook] });
-    const res = await request(a).post('/api/books/share').set(authHeader(bob)).send({ ids: [bobBook] });
+    await request(a).post('/api/books/share').set(authHeader(alice)).send({ ids: [aliceBook], visibility: 'public' });
+    const res = await request(a).post('/api/books/share').set(authHeader(bob)).send({ ids: [bobBook], visibility: 'public' });
     expect(res.status).toBe(200);
     expect(res.body.updated).toBe(0);
     expect(res.body.blocked).toHaveLength(1);
@@ -60,15 +60,15 @@ describe('books share/unshare', () => {
 
   it('blocks re-sharing a book that is already shared', async () => {
     const mine = insertBook(db, alice.id, 'Solaris');
-    await request(a).post('/api/books/share').set(authHeader(alice)).send({ ids: [mine] });
-    const res = await request(a).post('/api/books/share').set(authHeader(alice)).send({ ids: [mine] });
+    await request(a).post('/api/books/share').set(authHeader(alice)).send({ ids: [mine], visibility: 'public' });
+    const res = await request(a).post('/api/books/share').set(authHeader(alice)).send({ ids: [mine], visibility: 'public' });
     expect(res.body.updated).toBe(0);
     expect(res.body.blocked.map(x => x.id)).toContain(mine);
   });
 
   it('includes the shared field in the listing', async () => {
     const mine = insertBook(db, alice.id);
-    await request(a).post('/api/books/share').set(authHeader(alice)).send({ ids: [mine] });
+    await request(a).post('/api/books/share').set(authHeader(alice)).send({ ids: [mine], visibility: 'public' });
     const res = await request(a).get('/api/books').set(authHeader(alice));
     expect(res.body[0]).toHaveProperty('shared', 1);
   });
