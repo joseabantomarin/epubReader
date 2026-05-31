@@ -65,5 +65,91 @@ export function createGroupsRouter(db) {
     res.json({ deleted: 1 });
   });
 
+  // True if the user owns the group or is an active member.
+  function canSeeGroup(group, userId) {
+    if (group.owner_id === userId) return true;
+    const row = db.prepare(
+      'SELECT 1 FROM group_members WHERE group_id = ? AND user_id = ? LIMIT 1'
+    ).get(group.id, userId);
+    return !!row;
+  }
+
+  // Group detail: members (+pending) and the books shared to it.
+  r.get('/:id', (req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) return res.status(404).end();
+    const g = db.prepare('SELECT * FROM groups WHERE id = ?').get(id);
+    if (!g || !canSeeGroup(g, req.user.sub)) return res.status(404).end();
+
+    const members = db.prepare(`
+      SELECT gm.id, gm.email, gm.user_id, u.name AS user_name
+        FROM group_members gm
+        LEFT JOIN users u ON u.id = gm.user_id
+       WHERE gm.group_id = ?
+       ORDER BY gm.created_at ASC
+    `).all(id).map(m => ({
+      id: m.id,
+      email: m.email,
+      name: m.user_name || null,
+      status: m.user_id ? 'active' : 'pending',
+    }));
+
+    const books = db.prepare(`
+      SELECT b.id, b.title, b.author, b.format, b.cover_path, u.name AS owner_name
+        FROM books b JOIN users u ON u.id = b.user_id
+       WHERE b.visibility = 'group' AND b.share_group_id = ?
+       ORDER BY b.uploaded_at DESC
+    `).all(id).map(b => ({
+      id: b.id,
+      title: b.title,
+      author: b.author,
+      format: b.format,
+      coverUrl: b.cover_path ? `/api/shared/${b.id}/cover` : null,
+      sharedBy: b.owner_name,
+    }));
+
+    res.json({
+      id: g.id,
+      name: g.name,
+      role: g.owner_id === req.user.sub ? 'owner' : 'member',
+      members,
+      books,
+    });
+  });
+
+  r.post('/:id/members', (req, res) => {
+    const g = ownedGroup(req, res);
+    if (!g) return;
+    const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+    if (!email) return res.status(400).json({ error: 'missing_email' });
+    const existing = db.prepare('SELECT 1 FROM group_members WHERE group_id = ? AND email = ?').get(g.id, email);
+    if (existing) return res.status(409).json({ error: 'already_member' });
+    const user = db.prepare('SELECT id, name FROM users WHERE LOWER(email) = ?').get(email);
+    const memberId = db.prepare(
+      'INSERT INTO group_members (group_id, user_id, email) VALUES (?, ?, ?)'
+    ).run(g.id, user ? user.id : null, email).lastInsertRowid;
+    res.json({
+      id: memberId,
+      email,
+      name: user ? user.name : null,
+      status: user ? 'active' : 'pending',
+    });
+  });
+
+  r.delete('/:id/members/:memberId', (req, res) => {
+    const g = ownedGroup(req, res);
+    if (!g) return;
+    const memberId = Number(req.params.memberId);
+    db.prepare('DELETE FROM group_members WHERE id = ? AND group_id = ?').run(memberId, g.id);
+    res.json({ removed: 1 });
+  });
+
+  r.post('/:id/leave', (req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) return res.status(404).end();
+    db.prepare('DELETE FROM group_members WHERE group_id = ? AND user_id = ?').run(id, req.user.sub);
+    res.json({ left: 1 });
+  });
+
   return r;
 }
