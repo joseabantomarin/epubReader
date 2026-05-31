@@ -15,7 +15,7 @@ export default function AIExplainModal({ text, title, author, onClose }) {
     const wordCount = text.trim().split(/\s+/).filter(Boolean).length;
     let query;
     if (wordCount <= 2) {
-      query = `Define esto: ${text}`;
+      query = `Define esto: "${text}"`;
     } else {
       const book = author ? `del libro ${title} del autor ${author}` : `del libro ${title}`;
       query = `Explica este pasaje ${book}: ${text}`;

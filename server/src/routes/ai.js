@@ -5,8 +5,8 @@ import { config } from '../config.js';
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const MAX_CHARS = 2000;
 const SYSTEM_PROMPT =
-  'Eres un asistente que explica pasajes de libros en español, de forma clara, ' +
-  'breve y sencilla. No inventes contexto que no esté en el texto.';
+  'Eres un asistente que responde en español de forma clara, breve y sencilla. ' +
+  'Responde solo lo que se te pide y no inventes información ni contexto que no se te haya dado.';
 
 export function createAIRouter() {
   const r = Router();
@@ -30,7 +30,9 @@ export function createAIRouter() {
           max_tokens: 400,
           messages: [
             { role: 'system', content: SYSTEM_PROMPT },
-            { role: 'user', content: `Explica este pasaje:\n\n${text}` },
+            // The client already built the full instruction (define vs. explain),
+            // so forward it verbatim instead of re-wrapping it as a "pasaje".
+            { role: 'user', content: text },
           ],
         }),
         signal: AbortSignal.timeout(10_000),
