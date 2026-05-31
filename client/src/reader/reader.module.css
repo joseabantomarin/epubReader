@@ -120,7 +120,8 @@
 @media (max-width: 639px) {
   .header { gap: 6px; }
   .collapsible { display: none; }
-  .collapsible[data-open='true'] {
+  .collapsible[data-open='true'],
+  .collapsible[data-native='true'] {
     display: flex;
     align-items: center;
     gap: 6px;
