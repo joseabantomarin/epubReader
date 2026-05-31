@@ -27,7 +27,7 @@ export function createAIRouter() {
         body: JSON.stringify({
           model: config.groqModel,
           temperature: 0.3,
-          max_tokens: 400,
+          max_tokens: 600,
           messages: [
             { role: 'system', content: SYSTEM_PROMPT },
             // The client already built the full instruction (define vs. explain),
