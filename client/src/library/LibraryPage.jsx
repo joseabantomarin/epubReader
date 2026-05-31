@@ -18,6 +18,7 @@ import loginStyles from '../auth/login.module.css';
 import Toolbar from './Toolbar.jsx';
 import BookCard from './BookCard.jsx';
 import SettingsModal from './SettingsModal.jsx';
+import ShareDialog from './ShareDialog.jsx';
 import { loadSettings } from '../lib/readerSettings.js';
 
 export default function LibraryPage() {
@@ -31,6 +32,7 @@ export default function LibraryPage() {
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState(() => new Set());
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const [viewMode, setViewMode] = useState(() => loadSettings().viewMode);
   const [isFullscreen, toggleFullscreen] = useFullscreen();
   const [offline, setOffline] = useState(false);
@@ -169,21 +171,9 @@ export default function LibraryPage() {
     }
   };
 
-  const shareSelected = async () => {
-    const ids = [...selectedIds];
-    if (ids.length === 0) return;
-    try {
-      const result = await api.shareBooks(ids);
-      const blockedIds = new Set((result?.blocked || []).map(x => x.id));
-      setBooks((prev) => prev.map(b =>
-        (selectedIds.has(b.id) && !blockedIds.has(b.id)) ? { ...b, shared: 1 } : b));
-      cancelSelection();
-      reload({ silent: true });
-      if (result?.blocked?.length) {
-        const titles = result.blocked.map(x => `“${x.title}”`).join(', ');
-        alert(`Ya existe un libro compartido con ese título y autor: ${titles}. No se compartió de nuevo.`);
-      }
-    } catch (e) { alert('Error al compartir: ' + e.message); }
+  const shareSelected = () => {
+    if (selectedIds.size === 0) return;
+    setShareOpen(true);
   };
   const unshareSelected = async () => {
     const ids = [...selectedIds];
@@ -325,6 +315,25 @@ export default function LibraryPage() {
       </section>
 
       <SettingsModal open={settingsOpen} onClose={() => { setSettingsOpen(false); setViewMode(loadSettings().viewMode); }} />
+
+      <ShareDialog
+        open={shareOpen}
+        ids={[...selectedIds]}
+        count={selectedIds.size}
+        onClose={() => setShareOpen(false)}
+        onShared={(mode, result) => {
+          setShareOpen(false);
+          if (mode === 'public' && result?.blocked?.length) {
+            const titles = result.blocked.map(x => `"${x.title}"`).join(', ');
+            alert(`Ya existe un libro compartido con ese título y autor: ${titles}. No se compartió de nuevo.`);
+          }
+          setBooks((prev) => prev.map(b => selectedIds.has(b.id)
+            ? { ...b, shared: mode === 'public' ? 1 : 0, visibility: mode }
+            : b));
+          cancelSelection();
+          reload({ silent: true });
+        }}
+      />
 
       <hr className={styles.divider} />
       <PitchSection />
