@@ -74,7 +74,10 @@ export const api = {
     call(`/api/shared/${bookId}/censor`, { method: 'POST', body: { reason } }),
   uncensorBook: (bookId) =>
     call(`/api/shared/${bookId}/uncensor`, { method: 'POST' }),
-  explainWithAI: (text) => call('/api/ai/explain', { method: 'POST', body: { text } }),
+  explainWithAI: (input) => call('/api/ai/explain', {
+    method: 'POST',
+    body: Array.isArray(input) ? { messages: input } : { text: input },
+  }),
   getProgress: (bookId) => call(`/api/books/${bookId}/progress`),
   putProgress: (bookId, cfi, percentage, totalPages) =>
     call(`/api/books/${bookId}/progress`, {

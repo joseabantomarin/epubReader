@@ -14,9 +14,20 @@ export function createAIRouter() {
 
   r.post('/explain', async (req, res) => {
     if (!config.groqApiKey) return res.status(503).json({ error: 'ai_disabled' });
-    const raw = typeof req.body?.text === 'string' ? req.body.text.trim() : '';
-    if (!raw) return res.status(400).json({ error: 'missing_text' });
-    const text = raw.slice(0, MAX_CHARS);
+    // Accept either a single { text } (one-shot) or a { messages } conversation
+    // (the reader's mini-chat). The client builds the full prompt; we just relay.
+    let convo = null;
+    if (Array.isArray(req.body?.messages)) {
+      convo = req.body.messages
+        .filter((m) => m && (m.role === 'user' || m.role === 'assistant')
+          && typeof m.content === 'string' && m.content.trim())
+        .slice(-12) // keep the conversation bounded
+        .map((m) => ({ role: m.role, content: m.content.slice(0, MAX_CHARS) }));
+    } else {
+      const raw = typeof req.body?.text === 'string' ? req.body.text.trim() : '';
+      if (raw) convo = [{ role: 'user', content: raw.slice(0, MAX_CHARS) }];
+    }
+    if (!convo || !convo.length) return res.status(400).json({ error: 'missing_text' });
     try {
       const groqRes = await fetch(GROQ_URL, {
         method: 'POST',
@@ -30,9 +41,7 @@ export function createAIRouter() {
           max_tokens: 600,
           messages: [
             { role: 'system', content: SYSTEM_PROMPT },
-            // The client already built the full instruction (define vs. explain),
-            // so forward it verbatim instead of re-wrapping it as a "pasaje".
-            { role: 'user', content: text },
+            ...convo,
           ],
         }),
         signal: AbortSignal.timeout(10_000),
