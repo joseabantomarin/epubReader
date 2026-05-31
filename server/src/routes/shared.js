@@ -1,8 +1,10 @@
 import { Router } from 'express';
 import path from 'node:path';
 import { authOptional } from '../middleware/authOptional.js';
+import { authRequired } from '../middleware/authRequired.js';
 import { isAdminEmail } from '../config.js';
 import { bookPath } from '../storage.js';
+import { canAccessBook } from '../access.js';
 
 export function createSharedRouter(db, dataDir) {
   const r = Router();
@@ -27,6 +29,14 @@ export function createSharedRouter(db, dataDir) {
     if (!Number.isInteger(id)) { res.status(404).end(); return null; }
     const row = db.prepare('SELECT * FROM books WHERE id = ? AND shared = 1 AND censored = 0').get(id);
     if (!row) { res.status(404).end(); return null; }
+    return row;
+  }
+
+  function accessibleBook(req, res) {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) { res.status(404).end(); return null; }
+    const row = db.prepare('SELECT * FROM books WHERE id = ?').get(id);
+    if (!row || !canAccessBook(db, row, req.user ? req.user.sub : null)) { res.status(404).end(); return null; }
     return row;
   }
 
@@ -67,8 +77,25 @@ export function createSharedRouter(db, dataDir) {
     })));
   });
 
+  r.get('/with-me', authRequired, (req, res) => {
+    const rows = db.prepare(`
+      SELECT b.id, b.title, b.author, b.format, b.cover_path, u.name AS owner_name
+        FROM books b JOIN users u ON u.id = b.user_id
+       WHERE b.visibility = 'user' AND b.share_user_id = ?
+       ORDER BY b.uploaded_at DESC
+    `).all(req.user.sub);
+    res.json(rows.map(b => ({
+      id: b.id,
+      title: b.title,
+      author: b.author,
+      format: b.format,
+      coverUrl: b.cover_path ? `/api/shared/${b.id}/cover` : null,
+      sharedBy: b.owner_name,
+    })));
+  });
+
   r.get('/:id/file', (req, res) => {
-    const book = sharedBook(req, res);
+    const book = accessibleBook(req, res);
     if (!book) return;
     const format = book.format || 'epub';
     const file = bookPath(dataDir, book.user_id, book.id, format);
@@ -77,7 +104,7 @@ export function createSharedRouter(db, dataDir) {
   });
 
   r.get('/:id/cover', (req, res) => {
-    const book = sharedBook(req, res);
+    const book = accessibleBook(req, res);
     if (!book) return;
     if (!book.cover_path) return res.status(404).end();
     res.sendFile(path.join(dataDir, book.cover_path));

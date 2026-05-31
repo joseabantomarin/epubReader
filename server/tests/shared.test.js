@@ -19,8 +19,9 @@ function app(db, dataDir) {
 }
 
 function insertBook(db, userId, { title = 'Book', shared = 0, cover = false } = {}) {
-  return db.prepare("INSERT INTO books (user_id, title, file_path, format, shared, cover_path) VALUES (?, ?, 'p', 'epub', ?, ?)")
-    .run(userId, title, shared, cover ? 'books/x/1.jpg' : null).lastInsertRowid;
+  const visibility = shared ? 'public' : 'private';
+  return db.prepare("INSERT INTO books (user_id, title, file_path, format, shared, cover_path, visibility) VALUES (?, ?, 'p', 'epub', ?, ?, ?)")
+    .run(userId, title, shared, cover ? 'books/x/1.jpg' : null, visibility).lastInsertRowid;
 }
 
 describe('shared router', () => {
