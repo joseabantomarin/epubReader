@@ -20,9 +20,10 @@ export default function AIExplainModal({ text, title, author, onClose }) {
     if (!text) { setMessages([]); setInput(''); setError(null); setLoading(false); return; }
     const ref = author ? `(del libro «${title}» de ${author})` : `(del libro «${title}»)`;
     const initial = `Explica con claridad y algo de detalle (uno o dos párrafos) el siguiente `
-      + `fragmento ${ref}, basándote únicamente en el propio texto. Si el fragmento es demasiado `
-      + `corto o no aporta contexto suficiente, da solo la definición de la(s) palabra(s). `
-      + `No menciones si conoces o no el libro. Fragmento: «${text}»`;
+      + `fragmento ${ref}, basándote en el propio texto. Si no hay suficiente contexto para `
+      + `explicarlo, define directamente la(s) palabra(s), sin avisar que falta contexto y sin `
+      + `disculparte. No menciones si conoces o no el libro y responde directo, sin preámbulos. `
+      + `Fragmento: «${text}»`;
     const convo = [{ role: 'user', content: initial }];
     setMessages(convo);
     runTurn(convo);
