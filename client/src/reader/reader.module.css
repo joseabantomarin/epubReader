@@ -162,7 +162,7 @@
 @media (max-width: 639px) {
   .navBtn {
     top: 0; transform: none;
-    width: 90px; height: 100%;
+    width: 60px; height: 100%;
     background: transparent;
     color: transparent;
     border-radius: 0;
