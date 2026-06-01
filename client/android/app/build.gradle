@@ -7,9 +7,10 @@ def signingProps = new Properties()
 if (keystorePropsFile.exists()) {
     keystorePropsFile.withInputStream { signingProps.load(it) }
 }
-def ksPath  = signingProps['storeFile']  ?: System.getenv('MISLIBROS_KEYSTORE_PATH')
-def ksPass  = signingProps['storePassword'] ?: System.getenv('MISLIBROS_KEYSTORE_PASSWORD')
-def ksAlias = signingProps['keyAlias']    ?: System.getenv('MISLIBROS_KEYSTORE_ALIAS') ?: 'mislibros'
+def ksPath    = signingProps['storeFile']  ?: System.getenv('MISLIBROS_KEYSTORE_PATH')
+def ksPass    = signingProps['storePassword'] ?: System.getenv('MISLIBROS_KEYSTORE_PASSWORD')
+def ksAlias   = signingProps['keyAlias']    ?: System.getenv('MISLIBROS_KEYSTORE_ALIAS') ?: 'mislibros'
+def ksKeyPass = signingProps['keyPassword'] ?: System.getenv('MISLIBROS_KEY_PASSWORD') ?: ksPass
 
 android {
     namespace = "app.openlinks.mislibros"
@@ -33,7 +34,7 @@ android {
                 storeFile file(ksPath)
                 storePassword ksPass
                 keyAlias ksAlias
-                keyPassword ksPass
+                keyPassword ksKeyPass
             }
         }
     }
