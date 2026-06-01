@@ -25,12 +25,22 @@ function loadGsi() {
   });
 }
 
-export default function GoogleSignInButton({ className, nativeClassName }) {
+export default function GoogleSignInButton({ className, nativeClassName, onSuccess }) {
   const { loginWithGoogle } = useAuth();
   const navigate = useNavigate();
   const btnRef = useRef(null);
   const [error, setError] = useState(null);
   const [signingIn, setSigningIn] = useState(false);
+
+  // After a successful login, call onSuccess if the caller provided one;
+  // otherwise fall back to the default behavior of landing on the library.
+  // Held in a ref so the GSI init effect below doesn't re-run on every render.
+  const onSuccessRef = useRef(onSuccess);
+  onSuccessRef.current = onSuccess;
+  const afterLogin = (user) => {
+    if (onSuccessRef.current) onSuccessRef.current(user);
+    else navigate('/', { replace: true });
+  };
 
   useEffect(() => {
     if (IS_NATIVE) {
@@ -44,8 +54,8 @@ export default function GoogleSignInButton({ className, nativeClassName }) {
         client_id: CLIENT_ID,
         callback: async ({ credential }) => {
           try {
-            await loginWithGoogle(credential);
-            navigate('/', { replace: true });
+            const user = await loginWithGoogle(credential);
+            afterLogin(user);
           } catch (e) {
             setError('No se pudo iniciar sesión. Inténtalo de nuevo.');
           }
@@ -65,8 +75,8 @@ export default function GoogleSignInButton({ className, nativeClassName }) {
       const user = await GoogleAuth.signIn();
       const credential = user.authentication?.idToken;
       if (!credential) throw new Error('plugin returned no idToken');
-      await loginWithGoogle(credential);
-      navigate('/', { replace: true });
+      const u = await loginWithGoogle(credential);
+      afterLogin(u);
     } catch (e) {
       console.error('[native sign-in]', e);
       const detail = e?.code != null ? `code ${e.code}` : (e?.message || String(e));

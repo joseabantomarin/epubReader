@@ -1,0 +1,43 @@
+.confirmHint {
+  color: var(--fg);
+  font-size: 14px;
+  margin: 0 0 12px;
+}
+
+.input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  font-size: 15px;
+  font-family: inherit;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--fg);
+  margin-bottom: 16px;
+}
+
+.dangerBtn {
+  display: block;
+  width: 100%;
+  padding: 11px 16px;
+  font-size: 15px;
+  font-weight: 600;
+  font-family: inherit;
+  color: white;
+  background: #b00020;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.dangerBtn:hover { background: #94001b; }
+.dangerBtn:disabled { opacity: 0.5; cursor: default; }
+
+.cancelLink,
+.homeLink {
+  display: inline-block;
+  margin-top: 16px;
+  color: #4060c0;
+  font-size: 0.95rem;
+  text-decoration: underline;
+}
