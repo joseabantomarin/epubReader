@@ -240,6 +240,12 @@ export default function ReaderPage() {
         // uniformly. foliate's own `animated` column scroll is left off on purpose.
         const pageTransition = settings.pageTransition || 'slide';
         if (containerRef.current) containerRef.current.dataset.transition = pageTransition;
+        // foliate-view is a custom element → defaults to display:inline, on which
+        // CSS `transform` is IGNORED (spec: non-replaced inline elements aren't
+        // transformable). Force block + full size so the slide transform applies.
+        view.style.display = 'block';
+        view.style.width = '100%';
+        view.style.height = '100%';
         view.style.willChange = 'transform, opacity';
         const themeColors = resolveTheme(settings.theme);
         const fontFamily = FONT_FAMILIES[settings.fontFamily] || FONT_FAMILIES.system;
@@ -323,12 +329,12 @@ export default function ReaderPage() {
           const from = forward ? '100%' : '-100%';
           el.style.transition = 'none';
           el.style.transform = `translateX(${from})`;
-          el.style.boxShadow = '0 0 44px rgba(0,0,0,.6)';
+          el.style.boxShadow = '0 0 80px rgba(0,0,0,.85)';
           void el.offsetWidth;              // commit the start state
-          el.style.transition = 'transform 520ms cubic-bezier(.22,.61,.36,1)';
+          el.style.transition = 'transform 1100ms cubic-bezier(.22,.61,.36,1)';
           el.style.transform = 'translateX(0)';
           // Drop the shadow once it settles so it doesn't linger over the edges.
-          setTimeout(() => { el.style.boxShadow = 'none'; }, 560);
+          setTimeout(() => { el.style.boxShadow = 'none'; }, 1150);
         };
 
         // Fetch annotations from the server and paint them. Draw / show
