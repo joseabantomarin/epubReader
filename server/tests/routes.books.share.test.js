@@ -42,13 +42,26 @@ describe('share with visibility', () => {
     expect(row).toMatchObject({ visibility: 'group', share_group_id: gid, shared: 0 });
   });
 
-  it('rejects sharing to a group I do not own', async () => {
+  it('rejects sharing to a group I neither own nor belong to', async () => {
     const id = makeBook(db, owner.id);
     const other = insertUser(db, { email: 'b@x.com' });
     const gid = db.prepare('INSERT INTO groups (owner_id, name) VALUES (?, ?)').run(other.id, 'G').lastInsertRowid;
     const res = await request(a).post('/api/books/share')
       .set(authHeader(owner)).send({ ids: [id], visibility: 'group', targetId: gid });
     expect(res.status).toBe(403);
+  });
+
+  it('lets an active member publish their own book to the group', async () => {
+    const otherOwner = insertUser(db, { email: 'owner2@x.com' });
+    const gid = db.prepare('INSERT INTO groups (owner_id, name) VALUES (?, ?)').run(otherOwner.id, 'G').lastInsertRowid;
+    db.prepare('INSERT INTO group_members (group_id, user_id, email) VALUES (?, ?, ?)')
+      .run(gid, owner.id, owner.email); // `owner` here is just our acting member
+    const id = makeBook(db, owner.id);
+    const res = await request(a).post('/api/books/share')
+      .set(authHeader(owner)).send({ ids: [id], visibility: 'group', targetId: gid });
+    expect(res.status).toBe(200);
+    const row = db.prepare('SELECT visibility, share_group_id FROM books WHERE id = ?').get(id);
+    expect(row).toMatchObject({ visibility: 'group', share_group_id: gid });
   });
 
   it('shares to an individual by email', async () => {

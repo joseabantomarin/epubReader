@@ -17,9 +17,9 @@ export default function ShareDialog({ open, ids = [], count, onClose, onShared }
     setMode('public'); setEmail(''); setError(null); setGroupId(null);
     api.listGroups()
       .then((gs) => {
-        const owned = gs.filter(g => g.role === 'owner');
-        setGroups(owned);
-        if (owned.length) setGroupId(owned[0].id);
+        // Any group you belong to (owner or member) — members can publish too.
+        setGroups(gs);
+        if (gs.length) setGroupId(gs[0].id);
       })
       .catch(() => setGroups([]));
   }, [open]);
@@ -65,7 +65,7 @@ export default function ShareDialog({ open, ids = [], count, onClose, onShared }
 
           {mode === 'group' && (
             groups.length === 0
-              ? <p style={{ marginTop: 12 }}>No tienes grupos propios todavía. Crea uno en "Mis grupos".</p>
+              ? <p style={{ marginTop: 12 }}>No perteneces a ningún grupo todavía. Crea uno en "Mis grupos".</p>
               : <select style={{ marginTop: 12, width: '100%', padding: 8 }}
                   value={groupId ?? ''} onChange={(e) => setGroupId(Number(e.target.value))}>
                   {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}

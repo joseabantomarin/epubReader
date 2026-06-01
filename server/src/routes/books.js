@@ -276,7 +276,11 @@ export function createBooksRouter(db, dataDir) {
       const groupId = Number(req.body?.targetId);
       const g = db.prepare('SELECT owner_id FROM groups WHERE id = ?').get(groupId);
       if (!g) return res.status(404).json({ error: 'group_not_found' });
-      if (g.owner_id !== userId) return res.status(403).json({ error: 'forbidden' });
+      // Owner OR an active member may publish their own books to the group
+      // (members still can't manage membership — that stays owner-only).
+      const belongs = g.owner_id === userId
+        || !!db.prepare('SELECT 1 FROM group_members WHERE group_id = ? AND user_id = ? LIMIT 1').get(groupId, userId);
+      if (!belongs) return res.status(403).json({ error: 'forbidden' });
       const updated = db.prepare(
         `UPDATE books SET visibility='group', share_group_id=?, share_user_id=NULL, shared=0
           WHERE user_id = ? AND id IN (${placeholders})`
