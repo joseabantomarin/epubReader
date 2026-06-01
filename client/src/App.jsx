@@ -6,6 +6,7 @@ import LibraryPage from './library/LibraryPage.jsx';
 import ReaderPage from './reader/ReaderPage.jsx';
 import GroupsPage from './groups/GroupsPage.jsx';
 import GroupDetailPage from './groups/GroupDetailPage.jsx';
+import DeleteAccountPage from './auth/DeleteAccountPage.jsx';
 import { useNativeBack } from './lib/useNativeBack.js';
 import { useSyncQueue } from './lib/useSyncQueue.js';
 
@@ -50,6 +51,7 @@ function Routed() {
       <Route path="/read/:bookId" element={<ReaderPage />} />
       <Route path="/grupos" element={<GroupsPage />} />
       <Route path="/grupos/:groupId" element={<GroupDetailPage />} />
+      <Route path="/eliminar-cuenta" element={<DeleteAccountPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
