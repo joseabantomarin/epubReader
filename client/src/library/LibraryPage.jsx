@@ -38,6 +38,7 @@ export default function LibraryPage() {
   const [offline, setOffline] = useState(false);
   const [shared, setShared] = useState([]);
   const [sharedWithMe, setSharedWithMe] = useState([]);
+  const [groupSections, setGroupSections] = useState([]); // [{ id, name, books }]
   const isGuest = !user;
   // Pitch: expanded for guests, collapsed once logged in. Re-synced on
   // login/logout so logging in within the same session also collapses it.
@@ -90,6 +91,16 @@ export default function LibraryPage() {
         const swm = await api.listSharedWithMe();
         setSharedWithMe(swm);
       } catch { setSharedWithMe([]); }
+      try {
+        // Each group's books are shown as their own home section, so the home
+        // search filters them too. Group management stays in the /grupos page.
+        const groups = await api.listGroups();
+        const details = await Promise.all(groups.map((g) => api.getGroup(g.id).catch(() => null)));
+        setGroupSections(details.filter(Boolean).map((d) => ({ id: d.id, name: d.name, books: d.books || [] })));
+      } catch { setGroupSections([]); }
+    } else {
+      setSharedWithMe([]);
+      setGroupSections([]);
     }
   }, [user]);
 
@@ -125,6 +136,22 @@ export default function LibraryPage() {
       (b.author || '').toLowerCase().includes(q)
     );
   }, [shared, query]);
+
+  // One home section per group, filtered by the same search; only groups that
+  // still have matching books are shown.
+  const groupSectionsFiltered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return groupSections
+      .map((g) => ({
+        ...g,
+        books: q
+          ? g.books.filter(b =>
+              (b.title || '').toLowerCase().includes(q) ||
+              (b.author || '').toLowerCase().includes(q))
+          : g.books,
+      }))
+      .filter((g) => g.books.length > 0);
+  }, [groupSections, query]);
 
   const handleAddFile = async (file) => {
     setUploading(true);
@@ -323,6 +350,17 @@ export default function LibraryPage() {
         <SharedShelf books={sharedFiltered} canRate={!isGuest} onOpen={openShared}
           isAdmin={!!user?.isAdmin} onCensor={censorShared} />
       </section>
+
+      {!isGuest && groupSectionsFiltered.map((g) => (
+        <section key={g.id} className={styles.section}>
+          <h2 className={styles.sectionTitle} style={{ cursor: 'pointer' }}
+            onClick={() => navigate(`/grupos/${g.id}`)} title="Gestionar grupo">
+            Grupo: {g.name}{' '}
+            <span style={{ fontWeight: 400, fontSize: '0.78em', opacity: 0.6 }}>· gestionar ›</span>
+          </h2>
+          <SharedShelf books={g.books} canRate={false} onOpen={openShared} />
+        </section>
+      ))}
 
       {!isGuest && sharedWithMe.length > 0 && (
         <section className={styles.section}>
