@@ -238,7 +238,7 @@ export default function ReaderPage() {
         // Both modes are driven by us from the `relocate` event (below) so every
         // navigation path — buttons, keyboard, volume, swipe and PDFs — animates
         // uniformly. foliate's own `animated` column scroll is left off on purpose.
-        const pageTransition = settings.pageTransition || 'slide';
+        const pageTransition = settings.pageTransition || 'fade';
         if (containerRef.current) containerRef.current.dataset.transition = pageTransition;
         // foliate-view is a custom element → defaults to display:inline, on which
         // CSS `transform` is IGNORED (spec: non-replaced inline elements aren't

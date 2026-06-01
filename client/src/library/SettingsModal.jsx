@@ -109,11 +109,11 @@ export default function SettingsModal({ open, onClose }) {
             <label className={styles.label}>Animación al pasar página</label>
             <div className={styles.chips}>
               <button
-                className={`${styles.chip} ${s.pageTransition === 'slide' ? styles.chipActive : ''}`}
-                onClick={() => update({ pageTransition: 'slide' })}>Deslizar</button>
-              <button
                 className={`${styles.chip} ${s.pageTransition === 'fade' ? styles.chipActive : ''}`}
                 onClick={() => update({ pageTransition: 'fade' })}>Desvanecido</button>
+              <button
+                className={`${styles.chip} ${s.pageTransition === 'slide' ? styles.chipActive : ''}`}
+                onClick={() => update({ pageTransition: 'slide' })}>Deslizar</button>
             </div>
           </section>
 
