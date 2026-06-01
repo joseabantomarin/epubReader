@@ -356,7 +356,7 @@ export default function LibraryPage() {
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>Libros Compartidos</h2>
         <SharedShelf books={sharedFiltered} canRate={!isGuest} onOpen={openShared}
-          isAdmin={!!user?.isAdmin} onCensor={censorShared} />
+          isAdmin={!!user?.isAdmin} onCensor={censorShared} viewMode={viewMode} />
       </section>
 
       {!isGuest && groupSectionsFiltered.map((g) => (
@@ -366,7 +366,7 @@ export default function LibraryPage() {
             Grupo: {g.name}{' '}
             <span style={{ fontWeight: 400, fontSize: '0.78em', opacity: 0.6 }}>· gestionar ›</span>
           </h2>
-          <SharedShelf books={g.books} canRate={false} onOpen={openShared} />
+          <SharedShelf books={g.books} canRate={false} onOpen={openShared} viewMode={viewMode} />
         </section>
       ))}
 
@@ -374,7 +374,7 @@ export default function LibraryPage() {
         <section className={styles.section}>
           <h2 className={styles.sectionTitle}>Compartido conmigo</h2>
           <SharedShelf books={sharedWithMe} canRate={false}
-            onOpen={openShared} />
+            onOpen={openShared} viewMode={viewMode} />
         </section>
       )}
 

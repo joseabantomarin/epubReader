@@ -6,7 +6,7 @@ import { api } from '../lib/api.js';
 
 // books: lista de /api/shared (ya filtrada de "mine"). canRate: hay sesión.
 // isAdmin: muestra el botón de censura. onCensor(book): lo censura.
-export default function SharedShelf({ books, canRate, onOpen, isAdmin, onCensor }) {
+export default function SharedShelf({ books, canRate, onOpen, isAdmin, onCensor, viewMode = 'grid' }) {
   const [ratings, setRatings] = useState({}); // id -> { avgStars, ratingCount, myStars }
 
   const merged = (b) => ({ ...b, ...(ratings[b.id] || {}) });
@@ -29,7 +29,7 @@ export default function SharedShelf({ books, canRate, onOpen, isAdmin, onCensor 
   }
 
   return (
-    <div className={styles.grid}>
+    <div className={viewMode === 'list' ? styles.list : styles.grid}>
       {books.map((raw) => {
         const b = merged(raw);
         return (
