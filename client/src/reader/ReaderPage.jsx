@@ -316,19 +316,19 @@ export default function ReaderPage() {
             el.style.transition = 'none';
             el.style.opacity = '0';
             void el.offsetWidth;            // commit the start state
-            el.style.transition = 'opacity 180ms ease';
+            el.style.transition = 'opacity 280ms ease';
             el.style.opacity = '1';
             return;
           }
           const from = forward ? '100%' : '-100%';
           el.style.transition = 'none';
           el.style.transform = `translateX(${from})`;
-          el.style.boxShadow = '0 0 26px rgba(0,0,0,.45)';
+          el.style.boxShadow = '0 0 44px rgba(0,0,0,.6)';
           void el.offsetWidth;              // commit the start state
-          el.style.transition = 'transform 300ms cubic-bezier(.22,.61,.36,1)';
+          el.style.transition = 'transform 520ms cubic-bezier(.22,.61,.36,1)';
           el.style.transform = 'translateX(0)';
           // Drop the shadow once it settles so it doesn't linger over the edges.
-          setTimeout(() => { el.style.boxShadow = 'none'; }, 340);
+          setTimeout(() => { el.style.boxShadow = 'none'; }, 560);
         };
 
         // Fetch annotations from the server and paint them. Draw / show
