@@ -246,7 +246,17 @@ export default function ReaderPage() {
         view.style.display = 'block';
         view.style.width = '100%';
         view.style.height = '100%';
+        view.style.position = 'relative';
+        view.style.zIndex = '2';
         view.style.willChange = 'transform, opacity';
+        // Dim scrim behind the view: during a slide the area the incoming page
+        // hasn't covered yet shows this darkened layer instead of empty
+        // background, approximating the old page dimming underneath.
+        const dim = document.createElement('div');
+        dim.style.cssText = 'position:absolute;inset:0;background:#000;opacity:0;'
+          + 'pointer-events:none;z-index:1;';
+        containerRef.current.appendChild(dim);
+        view.__dim = dim;
         const themeColors = resolveTheme(settings.theme);
         const fontFamily = FONT_FAMILIES[settings.fontFamily] || FONT_FAMILIES.system;
         const hyphenCss = settings.hyphenation
@@ -327,14 +337,20 @@ export default function ReaderPage() {
             return;
           }
           const from = forward ? '100%' : '-100%';
+          const dim = el.__dim;
           el.style.transition = 'none';
           el.style.transform = `translateX(${from})`;
-          el.style.boxShadow = '0 0 80px rgba(0,0,0,.85)';
+          el.style.boxShadow = '0 0 60px rgba(0,0,0,.65)';
+          if (dim) { dim.style.transition = 'none'; dim.style.opacity = '0.5'; }
           void el.offsetWidth;              // commit the start state
-          el.style.transition = 'transform 1100ms cubic-bezier(.22,.61,.36,1)';
+          el.style.transition = 'transform 400ms cubic-bezier(.22,.61,.36,1)';
           el.style.transform = 'translateX(0)';
+          if (dim) {
+            dim.style.transition = 'opacity 400ms ease';
+            dim.style.opacity = '0';
+          }
           // Drop the shadow once it settles so it doesn't linger over the edges.
-          setTimeout(() => { el.style.boxShadow = 'none'; }, 1150);
+          setTimeout(() => { el.style.boxShadow = 'none'; }, 450);
         };
 
         // Fetch annotations from the server and paint them. Draw / show
@@ -457,6 +473,7 @@ export default function ReaderPage() {
         try { v.__flush?.(); } catch {}
         try { v.__detachFlush?.(); } catch {}
         try { v.__cleanup?.(); } catch {}
+        try { v.__dim?.remove?.(); } catch {}
         try { v.close?.(); } catch {}
         try { v.remove?.(); } catch {}
       }
