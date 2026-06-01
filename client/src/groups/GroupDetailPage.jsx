@@ -10,6 +10,7 @@ export default function GroupDetailPage() {
   const [group, setGroup] = useState(null);
   const [email, setEmail] = useState('');
   const [error, setError] = useState(null);
+  const [membersOpen, setMembersOpen] = useState(false); // collapsed by default
 
   const refresh = () => api.getGroup(groupId).then(setGroup).catch(() => navigate('/grupos'));
   useEffect(() => { refresh(); /* eslint-disable-next-line */ }, [groupId]);
@@ -52,28 +53,36 @@ export default function GroupDetailPage() {
       </header>
 
       <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>Miembros</h2>
-        {isOwner && (
-          <div className={styles.createRow}>
-            <input type="email" value={email} placeholder="correo@ejemplo.com"
-              onChange={(e) => setEmail(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') addMember(); }} />
-            <button className={styles.primary} onClick={addMember}>Agregar</button>
-          </div>
+        <h2 className={styles.sectionTitle} style={{ cursor: 'pointer', userSelect: 'none' }}
+          onClick={() => setMembersOpen((o) => !o)} aria-expanded={membersOpen} title="Ver miembros">
+          Miembros ({group.members.length}){' '}
+          <span style={{ fontWeight: 400, opacity: 0.6 }}>{membersOpen ? '▴' : '▾'}</span>
+        </h2>
+        {membersOpen && (
+          <>
+            {isOwner && (
+              <div className={styles.createRow}>
+                <input type="email" value={email} placeholder="correo@ejemplo.com"
+                  onChange={(e) => setEmail(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') addMember(); }} />
+                <button className={styles.primary} onClick={addMember}>Agregar</button>
+              </div>
+            )}
+            {error && <p style={{ color: '#b00020' }}>{error}</p>}
+            <ul className={styles.list}>
+              {group.members.map(m => (
+                <li key={m.id} className={styles.item}>
+                  <span className={styles.name}>{m.name || m.email}</span>
+                  <span className={styles.meta}>
+                    {m.status === 'pending' ? 'Pendiente' : 'Activo'}
+                    {isOwner && <button className={styles.linkBtn} onClick={() => removeMember(m.id)}>Quitar</button>}
+                  </span>
+                </li>
+              ))}
+              {group.members.length === 0 && <p className={styles.empty}>Sin miembros aún.</p>}
+            </ul>
+          </>
         )}
-        {error && <p style={{ color: '#b00020' }}>{error}</p>}
-        <ul className={styles.list}>
-          {group.members.map(m => (
-            <li key={m.id} className={styles.item}>
-              <span className={styles.name}>{m.name || m.email}</span>
-              <span className={styles.meta}>
-                {m.status === 'pending' ? 'Pendiente' : 'Activo'}
-                {isOwner && <button className={styles.linkBtn} onClick={() => removeMember(m.id)}>Quitar</button>}
-              </span>
-            </li>
-          ))}
-          {group.members.length === 0 && <p className={styles.empty}>Sin miembros aún.</p>}
-        </ul>
       </section>
 
       <section className={styles.section}>
