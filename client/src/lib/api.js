@@ -49,6 +49,7 @@ async function call(path, { method = 'GET', body, formData, headers = {} } = {})
 
 export const api = {
   loginGoogle: (credential) => call('/api/auth/google', { method: 'POST', body: { credential } }),
+  deleteAccount: (email) => call('/api/auth/account', { method: 'DELETE', body: { email } }),
   listBooks: () => call('/api/books'),
   uploadBook: (file, extras = {}) => {
     const fd = new FormData();
