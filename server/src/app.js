@@ -60,7 +60,7 @@ export function createApp(options = {}) {
   if (!isTest) {
     app.use('/api/auth/google', rateLimit({ windowMs: 60_000, max: 10 }));
   }
-  app.use('/api/auth', createAuthRouter(db));
+  app.use('/api/auth', createAuthRouter(db, dataDir));
 
   if (!isTest) {
     const uploadLimiter = rateLimit({
