@@ -235,15 +235,12 @@ export default function ReaderPage() {
         const settings = loadSettings();
 
         // Page-turn transition mode (read once at open, like the other settings).
+        // Both modes are driven by us from the `relocate` event (below) so every
+        // navigation path — buttons, keyboard, volume, swipe and PDFs — animates
+        // uniformly. foliate's own `animated` column scroll is left off on purpose.
         const pageTransition = settings.pageTransition || 'slide';
         if (containerRef.current) containerRef.current.dataset.transition = pageTransition;
-        if (pageTransition === 'slide') {
-          // Native foliate column-scroll animation, uniform across buttons/keys/swipe.
-          try { view.renderer?.setAttribute('animated', ''); } catch {}
-        } else {
-          // Fade: keep scrolling instant; fade the view in on each relocate.
-          view.style.transition = 'opacity 180ms ease';
-        }
+        view.style.willChange = 'transform, opacity';
         const themeColors = resolveTheme(settings.theme);
         const fontFamily = FONT_FAMILIES[settings.fontFamily] || FONT_FAMILIES.system;
         const hyphenCss = settings.hyphenation
@@ -305,9 +302,34 @@ export default function ReaderPage() {
         // TOC jumps — all of them go through the relocate event.
         let savingEnabled = false;
         setTimeout(() => { savingEnabled = true; }, 500);
-        // Gate the fade so the initial render / position-restore doesn't flash.
-        let fadeReady = false;
-        setTimeout(() => { fadeReady = true; }, 500);
+        // Gate the page-turn animation so the initial render / position-restore
+        // doesn't animate. `prevFraction` lets us infer the turn direction.
+        let animReady = false;
+        setTimeout(() => { animReady = true; }, 500);
+        let prevFraction = null;
+
+        // Animate the page turn on the whole foliate-view. Driven from relocate so
+        // it covers every navigation path. slide: the new page sweeps in from the
+        // side with a drop shadow; fade: a quick dissolve.
+        const playPageTurn = (el, mode, forward) => {
+          if (mode === 'fade') {
+            el.style.transition = 'none';
+            el.style.opacity = '0';
+            void el.offsetWidth;            // commit the start state
+            el.style.transition = 'opacity 180ms ease';
+            el.style.opacity = '1';
+            return;
+          }
+          const from = forward ? '100%' : '-100%';
+          el.style.transition = 'none';
+          el.style.transform = `translateX(${from})`;
+          el.style.boxShadow = '0 0 26px rgba(0,0,0,.45)';
+          void el.offsetWidth;              // commit the start state
+          el.style.transition = 'transform 300ms cubic-bezier(.22,.61,.36,1)';
+          el.style.transform = 'translateX(0)';
+          // Drop the shadow once it settles so it doesn't linger over the edges.
+          setTimeout(() => { el.style.boxShadow = 'none'; }, 340);
+        };
 
         // Fetch annotations from the server and paint them. Draw / show
         // listeners were attached before view.open.
@@ -327,13 +349,17 @@ export default function ReaderPage() {
         }
 
         view.addEventListener('relocate', (e) => {
-          if (pageTransition === 'fade' && fadeReady) {
-            view.style.opacity = '0';
-            requestAnimationFrame(() => { view.style.opacity = '1'; });
-          }
           const fraction = typeof e.detail?.fraction === 'number' ? e.detail.fraction : null;
           const cfi = e.detail?.cfi;
           const loc = e.detail?.location;
+
+          // Play the page-turn animation (skip the initial restore and non-
+          // positional relocates like text selection).
+          if (animReady && e.detail?.reason !== 'selection') {
+            const forward = (fraction == null || prevFraction == null) ? true : fraction > prevFraction;
+            playPageTurn(view, pageTransition, forward);
+          }
+          if (fraction != null) prevFraction = fraction;
 
           // Always refresh the UI indicator — foliate-js gives accurate values
           // from the first relocate, no async generation needed.

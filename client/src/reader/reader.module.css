@@ -60,27 +60,6 @@
 }
 .viewport > div { height: 100%; }
 
-/* Slide mode: soft inner edge shadows so sliding content reads as paper
-   passing under the book's edges. Only painted in slide mode. */
-.viewport[data-transition="slide"]::before,
-.viewport[data-transition="slide"]::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 18px;
-  z-index: 2;
-  pointer-events: none;
-}
-.viewport[data-transition="slide"]::before {
-  left: 0;
-  background: linear-gradient(to right, rgba(0,0,0,.16), rgba(0,0,0,0));
-}
-.viewport[data-transition="slide"]::after {
-  right: 0;
-  background: linear-gradient(to left, rgba(0,0,0,.16), rgba(0,0,0,0));
-}
-
 .navBtn {
   position: absolute;
   top: 50%; transform: translateY(-50%);
