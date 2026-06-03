@@ -92,30 +92,31 @@ backend (`sudo systemctl restart epubreader.service`).
 
 ## Build + publicar APK
 
-**CRÍTICO**: el APK necesita `VITE_API_BASE=https://mislibros.openlinks.app` (URL absoluta) en el build. Si queda vacío (como en el `.env` del repo, que está pensado para web), todas las llamadas a `/api/...` se quedan en `localhost` del webview de Capacitor y NADA funciona (ni login ni nada). El bundle minificado debe contener `const go="https://mislibros.openlinks.app"`.
+**CRÍTICO**: el build nativo necesita `VITE_API_BASE=https://mislibros.openlinks.app` (URL absoluta). Si queda vacío (como en el build web, pensado para rutas relativas del mismo origen), todas las llamadas a `/api/...` se quedan en el `localhost` del webview de Capacitor y NADA funciona (ni login ni nada).
+
+Esto ya **no** se parchea a mano. La URL vive en `client/.env.android` (commiteado) y la carga el modo de Vite `--mode android`:
+
+- `npm run build:android` → build nativo contra **producción** (`.env.android`).
+- `npm run build:android:local` → build nativo contra un **backend local** (`.env.androidlocal`, gitignored; copiar de `.env.androidlocal.example` y poner la IP de tu LAN).
+- `npm run build` → build **web** (sin `VITE_API_BASE`, rutas relativas). No tocar para el APK.
 
 Java 21 es obligatorio (Capacitor 8). Java 25 del sistema NO sirve.
 
 ```bash
-cd /Users/joseabanto/Applications/epubReader/client
-# 1) parchear .env temporalmente con la URL absoluta
-cp .env .env.web.bak
-echo "VITE_GOOGLE_CLIENT_ID=823603281404-rgg8sb970f86cmqo91vgi6ibh0ph8ban.apps.googleusercontent.com" > .env
-echo "VITE_API_BASE=https://mislibros.openlinks.app" >> .env
-# 2) build + sync + APK
-npm run build
+cd <repo>/client
+# 1) build nativo (producción) + sync + APK   (sin tocar ningún .env a mano)
+npm run build:android
 npx cap sync android
 cd android
-JAVA_HOME=/Users/joseabanto/jdks/jdk-21.0.11+10/Contents/Home ./gradlew assembleRelease
-# 3) verificar que la URL absoluta esté en el bundle
-grep -oE 'const [a-z][a-z]?="https://mislibros[^"]*"' ../dist/assets/index-*.js
-# 4) subir
+JAVA_HOME=<ruta-jdk-21> ./gradlew assembleRelease   # o bundleRelease para el .aab del Play Store
+# 2) verificar que la URL absoluta esté en el bundle
+grep -oE '"https://mislibros\.openlinks\.app"' ../dist/assets/index-*.js
+# 3) subir el APK público
 scp app/build/outputs/apk/release/app-release.apk \
     administrator@147.93.176.249:/home/administrator/epubReader/server/data/downloads/mislibros.apk
-# 5) restaurar .env (el build web necesita VITE_API_BASE vacío para usar rutas relativas)
-cd /Users/joseabanto/Applications/epubReader/client
-mv .env.web.bak .env
 ```
+
+Firma: lee `client/android/keystore.properties` (gitignored) o las env vars `MISLIBROS_KEYSTORE_*`. Ver "Firma de release" abajo.
 
 ## JDKs instalados localmente
 
