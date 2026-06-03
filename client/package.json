@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:android": "vite build --mode android",
+    "build:android:local": "vite build --mode androidlocal",
     "preview": "vite preview",
     "test": "vitest run"
   },
