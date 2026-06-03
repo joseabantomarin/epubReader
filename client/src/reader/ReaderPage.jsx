@@ -376,8 +376,11 @@ export default function ReaderPage() {
           const loc = e.detail?.location;
 
           // Play the page-turn animation (skip the initial restore and non-
-          // positional relocates like text selection).
-          if (animReady && e.detail?.reason !== 'selection') {
+          // positional relocates like text selection). Also skip while reading
+          // aloud: the native flow rapidly walks pages to extract text (masked
+          // by the "Preparando lectura…" overlay) and then auto-turns in sync
+          // with the audio — animating those bursts is wasted work and janky.
+          if (animReady && !readingRef.current && e.detail?.reason !== 'selection') {
             const forward = (fraction == null || prevFraction == null) ? true : fraction > prevFraction;
             playPageTurn(view, pageTransition, forward);
           }
@@ -480,24 +483,6 @@ export default function ReaderPage() {
       viewRef.current = null;
     };
   }, [bookId, isShared]);
-
-  const [selectionMode, setSelectionMode] = useState(false);
-
-  // Web only: intercept the browser back button while selection mode is on.
-  // Push a fake history entry on activate; popstate (back press) deactivates
-  // instead of navigating away. Manual toggle-off pops our entry to keep the
-  // back stack clean.
-  useEffect(() => {
-    if (isNative || !selectionMode) return;
-    window.history.pushState({ selMode: true }, '');
-    let poppedByUser = false;
-    const onPop = () => { poppedByUser = true; setSelectionMode(false); };
-    window.addEventListener('popstate', onPop);
-    return () => {
-      window.removeEventListener('popstate', onPop);
-      if (!poppedByUser) window.history.back();
-    };
-  }, [selectionMode, isNative]);
 
   useEffect(() => {
     const update = () => setOnline(navigator.onLine);
@@ -692,7 +677,6 @@ export default function ReaderPage() {
   const availableActions = [
     toc.length > 0 && 'toc',
     !isShared && 'annotations',
-    !isNative && !isShared && 'selection',
     !isNative && 'fullscreen',
   ].filter(Boolean);
   const indicatorAction = availableActions.includes(lastAction)
@@ -753,16 +737,6 @@ export default function ReaderPage() {
             <button className={styles.back} onClick={() => { setAnnotationsOpen(true); recordAction('annotations'); }}
               aria-label="Subrayados" title="Subrayados">★</button>
           )}
-          {!isNative && !isShared && (
-            <button className={`${styles.back} ${selectionMode ? styles.backActive : ''}`}
-              onClick={() => { setSelectionMode((v) => !v); recordAction('selection'); }}
-              aria-label={selectionMode ? 'Salir del modo selección' : 'Modo selección de texto'}
-              title={selectionMode ? 'Salir del modo selección' : 'Seleccionar texto'}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M6 4h3M15 4h3M4 6V4h2M18 4h2v2M4 18v2h2M18 20h2v-2M9 20H6M6 9V6M18 9V6M14 11v8M11 11h6"/>
-              </svg>
-            </button>
-          )}
           {!isNative && (
             <FullscreenButton className={styles.back} isFullscreen={isFullscreen}
               onToggle={() => { toggleFullscreen(); recordAction('fullscreen'); }} hint="F" />
@@ -785,25 +759,20 @@ export default function ReaderPage() {
         {loading && <div className={styles.loading}>Cargando libro…</div>}
         {error && <div className={styles.loading} style={{ color: '#b00020' }}>{error}</div>}
         {preparing && <div className={styles.loading} style={{ background: 'var(--bg)' }}>Preparando lectura…</div>}
+        {/* Side page-turn buttons: desktop web only. On mobile web they're
+            hidden (CSS) so the whole page is free for text selection and
+            page turns happen by swipe. Never rendered on native (Android). */}
         {!isNative && (
           <>
-            <button className={`${styles.navBtn} ${styles.navPrev} ${selectionMode ? styles.navPassthrough : ''}`}
+            <button className={`${styles.navBtn} ${styles.navPrev}`}
               aria-label={leftSideAdvances ? 'Siguiente' : 'Anterior'}
               onClick={onLeftSide}>‹</button>
-            <button className={`${styles.navBtn} ${styles.navCenter} ${selectionMode ? styles.navPassthrough : ''}`}
-              aria-label={selectionMode ? 'Salir del modo selección' : 'Activar selección de texto'}
-              onClick={() => { if (!isShared) setSelectionMode((v) => !v); }} />
-            <button className={`${styles.navBtn} ${styles.navNext} ${selectionMode ? styles.navPassthrough : ''}`}
+            <button className={`${styles.navBtn} ${styles.navNext}`}
               aria-label={leftSideAdvances ? 'Anterior' : 'Siguiente'}
               onClick={onRightSide}>›</button>
           </>
         )}
       </div>
-      {selectionMode && (
-        <div className={styles.selectionBanner} role="status">
-          Mantén presionado para seleccionar texto. Toca el ícono para salir.
-        </div>
-      )}
       {showOffHint && (
         <div className={styles.offHint} role="status">
           <span>Lectura detenida. Si desea escuchar con el dispositivo Android apagado, descargue la aplicación.</span>
@@ -911,12 +880,6 @@ function ActionIcon({ action }) {
       return <span aria-hidden="true">☰</span>;
     case 'annotations':
       return <span aria-hidden="true">★</span>;
-    case 'selection':
-      return (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M6 4h3M15 4h3M4 6V4h2M18 4h2v2M4 18v2h2M18 20h2v-2M9 20H6M6 9V6M18 9V6M14 11v8M11 11h6"/>
-        </svg>
-      );
     case 'fullscreen':
       return (
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
