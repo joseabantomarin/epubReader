@@ -2,6 +2,9 @@ node_modules/
 dist/
 .env
 .env.local
+# Native build pointed at a local backend: holds a personal LAN IP, not a secret.
+.env.androidlocal
+.env.*.local
 server/data/
 .DS_Store
 *.log
