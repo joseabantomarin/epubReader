@@ -102,6 +102,31 @@ Esto ya **no** se parchea a mano. La URL vive en `client/.env.android` (commitea
 
 Java 21 es obligatorio (Capacitor 8). Java 25 del sistema NO sirve.
 
+### Versionado de la app (automático desde git)
+
+`versionCode` y `versionName` **ya no se editan a mano**: `client/android/app/build.gradle`
+los calcula en cada build a partir del historial de git, usando tags de release `vX.Y`
+como ancla.
+
+- **`versionName`** = el último tag `v*` + el cambio semántico más fuerte desde ese tag:
+  - commit con `!:` o `BREAKING CHANGE` -> sube **major** (`1.x` -> `2.0`)
+  - algún `feat:` -> sube **minor** (`1.0` -> `1.1`)
+  - solo `fix:` / `chore:` / etc. -> sube **patch** (`1.1` -> `1.1.1`)
+- **`versionCode`** = número de tags `v*` + 1 (un tag por release => +1 cada vez). El Play
+  Store rechaza un `.aab`/`.apk` con un `versionCode` ya usado, por eso debe subir siempre.
+- Si git o los tags no están disponibles, cae a los valores `FALLBACK_*` del `build.gradle`.
+
+**Flujo por release:** se versiona solo según los commits desde el último tag. Tras subir
+el build al Play Store, **crear y pushear el tag** para anclar el siguiente:
+
+```bash
+# El build imprime la versión calculada, p.ej.:  "MisLibros version: 1.1 (versionCode 2)"
+git tag -a v1.1 -m "Release 1.1" && git push origin v1.1
+```
+
+Si olvidas el tag, el próximo build repite el mismo `versionCode` y el Play Store lo
+rechaza. Tag base actual: `v1.0` (en el commit `8383756`).
+
 ```bash
 cd <repo>/client
 # 1) build nativo (producción) + sync + APK   (sin tocar ningún .env a mano)
