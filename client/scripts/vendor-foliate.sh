@@ -19,8 +19,17 @@ FOLIATE_REF="${FOLIATE_REF:-78914aef4466eb960965702401634c2cb348e9b1}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEST="$SCRIPT_DIR/../public/foliate-js"
 
+# Source maps (*.map) are debug-only and never loaded at runtime. Dropping them
+# trims ~1.5 MB (compressed) of pdf.js maps from the shipped app bundle.
+# Idempotent: runs on every invocation, including the skip path, so a copy that
+# was vendored before this change also gets cleaned on the next build.
+strip_maps() {
+  find "$DEST" -name '*.map' -type f -delete 2>/dev/null || true
+}
+
 if [ -f "$DEST/view.js" ] && [ -z "${FOLIATE_FORCE:-}" ]; then
-  echo "foliate-js already present ($DEST) - skipping. Set FOLIATE_FORCE=1 to refetch."
+  strip_maps
+  echo "foliate-js already present ($DEST) - skipping fetch (source maps stripped). Set FOLIATE_FORCE=1 to refetch."
   exit 0
 fi
 
@@ -47,9 +56,10 @@ rm -rf "$SRC/.git"
 rm -rf "$DEST"
 mkdir -p "$(dirname "$DEST")"
 mv "$SRC" "$DEST"
+strip_maps
 
 if [ ! -f "$DEST/view.js" ]; then
   echo "ERROR: foliate-js vendoring failed - $DEST/view.js missing." >&2
   exit 1
 fi
-echo "foliate-js vendored: $(find "$DEST" -type f | wc -l) files at $DEST"
+echo "foliate-js vendored: $(find "$DEST" -type f | wc -l) files at $DEST (source maps stripped)"
