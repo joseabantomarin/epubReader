@@ -11,3 +11,6 @@ mislibros*.apk
 
 # Superpowers brainstorming visual companion
 .superpowers/
+
+# Playwright CLI sessions + store screenshots
+.playwright-cli/
