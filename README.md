@@ -11,11 +11,15 @@ Stack: Node + Express + SQLite on the server; React + Vite + [foliate-js](https:
    npm install
    ```
 
-2. **Vendor foliate-js** into the client (it's not on npm and not committed):
+2. **foliate-js** (the reader engine) is vendored **automatically**. It's not on npm
+   and is gitignored, so every `npm run dev` / `npm run build*` runs a `prebuild`/`predev`
+   hook (`client/scripts/vendor-foliate.sh`) that fetches it into `client/public/foliate-js/`
+   if missing. Pinned to a commit for reproducible builds; override with `FOLIATE_REF`,
+   force a refetch with `FOLIATE_FORCE=1`, or run it on demand:
    ```bash
-   git clone --depth 1 https://github.com/johnfactotum/foliate-js.git client/public/foliate-js
-   rm -rf client/public/foliate-js/.git
+   npm run vendor:foliate -w client
    ```
+   Without it, the app builds but every book read fails on `/foliate-js/view.js`.
 
 3. **Create a Google OAuth Web client** at <https://console.cloud.google.com/apis/credentials>:
    - Type: *Web application*.

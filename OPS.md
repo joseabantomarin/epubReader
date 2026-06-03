@@ -127,9 +127,16 @@ git tag -a v1.1 -m "Release 1.1" && git push origin v1.1
 Si olvidas el tag, el próximo build repite el mismo `versionCode` y el Play Store lo
 rechaza. Tag base actual: `v1.0` (en el commit `8383756`).
 
+**foliate-js** (motor del lector) se vendoriza solo: el hook `prebuild` corre
+`client/scripts/vendor-foliate.sh` antes de cada build y lo baja a `client/public/foliate-js/`
+si falta (gitignored, no está en npm). Sin él, la app compila pero abrir cualquier libro
+falla con `Failed to fetch dynamically imported module: .../foliate-js/view.js`. Está fijado
+a un commit; refrescar con `FOLIATE_FORCE=1` o cambiar `FOLIATE_REF`.
+
 ```bash
 cd <repo>/client
 # 1) build nativo (producción) + sync + APK   (sin tocar ningún .env a mano)
+#    (prebuild vendoriza foliate-js automáticamente si falta)
 npm run build:android
 npx cap sync android
 cd android
