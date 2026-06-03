@@ -1,7 +1,7 @@
 apply plugin: 'com.android.application'
 
-// Release signing config — reads from android/keystore.properties (gitignored)
-// or from env vars (MISLIBROS_KEYSTORE_PATH / _PASSWORD / _ALIAS).
+// Release signing config: reads from android/keystore.properties (gitignored)
+// or from env vars (MISLIBROS_KEYSTORE_PATH / _PASSWORD / _ALIAS / _KEY_PASSWORD).
 def keystorePropsFile = rootProject.file('keystore.properties')
 def signingProps = new Properties()
 if (keystorePropsFile.exists()) {
@@ -24,26 +24,31 @@ def FALLBACK_VERSION_CODE = 1
 
 def git = { String cmd ->
     try {
-        def p = new ProcessBuilder(['bash', '-lc', cmd])
+        // Non-login shell ('-c', not '-lc'): a login shell would source profiles
+        // whose stdout would be captured here and corrupt the parsed value.
+        def p = new ProcessBuilder(['bash', '-c', cmd])
             .directory(rootProject.projectDir)
             .redirectErrorStream(true)
             .start()
         p.waitFor()
-        return p.exitValue() == 0 ? p.inputStream.text.trim() : null
-    } catch (Exception ignored) {
+        if (p.exitValue() == 0) return p.inputStream.text.trim()
+        logger.warn("Versioning: git command failed (exit ${p.exitValue()}), using fallback: ${cmd}")
+        return null
+    } catch (Exception e) {
+        logger.warn("Versioning: git command errored, using fallback: ${cmd} (${e.message})")
         return null
     }
 }
 
 def computeVersionName = {
-    def lastTag = git("git describe --tags --abbrev=0 --match 'v[0-9]*'")
+    def lastTag = git("git describe --tags --abbrev=0 --match 'v[0-9]*' 2>/dev/null")
     if (!lastTag) return FALLBACK_VERSION_NAME
     def m = (lastTag =~ /v(\d+)\.(\d+)(?:\.(\d+))?/)
     if (!m.find()) return FALLBACK_VERSION_NAME
     int major = m.group(1) as int
     int minor = m.group(2) as int
     int patch = (m.group(3) ?: '0') as int
-    def subjects = git("git log ${lastTag}..HEAD --pretty=%s") ?: ""
+    def subjects = git("git log ${lastTag}..HEAD --pretty=%s 2>/dev/null") ?: ""
     def lines = subjects.readLines()
     def breaking = lines.any { it ==~ /^[a-z]+(\([^)]*\))?!:.*/ || it.contains('BREAKING CHANGE') }
     def feature  = lines.any { it ==~ /^feat(\([^)]*\))?:.*/ }
@@ -54,7 +59,7 @@ def computeVersionName = {
 }
 
 def computeVersionCode = {
-    def count = git("git tag -l 'v[0-9]*' | wc -l")
+    def count = git("git tag -l 'v[0-9]*' 2>/dev/null | wc -l")
     return (count != null && count.isInteger()) ? (count as int) + 1 : FALLBACK_VERSION_CODE
 }
 
