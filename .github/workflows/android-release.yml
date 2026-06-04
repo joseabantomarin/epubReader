@@ -1,13 +1,14 @@
 name: Android release build
 
-# Builds the signed APK and AAB and uploads them as downloadable artifacts.
+# Builds the signed APK and AAB and publishes them as a GitHub Release on every
+# push to main (a PR merge is a push to main, so it covers both).
 #
 # Versioning is computed from git history by client/android/app/build.gradle
 # (versionName from the latest v* tag + the strongest conventional-commit type
-# since it; versionCode from the v* tag count). The intended flow is build FIRST,
-# then tag: run this workflow, download the AAB, upload it to the Play Store, then
-#   git tag -a vX.Y -m "Release X.Y" && git push origin vX.Y
-# so the next build advances. (Building is therefore not triggered on tag push.)
+# since it; versionCode from the v* tag count). This workflow then creates the
+# matching vX.Y tag on the built commit, which advances the count so the next
+# push gets the next versionCode automatically. You never tag by hand: just push,
+# and download the AAB from the Release page to upload to the Play Store.
 #
 # Required repository secrets (Settings -> Secrets and variables -> Actions):
 #   ANDROID_KEYSTORE_BASE64    base64 of the upload keystore: `base64 -w0 keystore2.jks`
@@ -21,7 +22,7 @@ on:
     branches: [main]
 
 permissions:
-  contents: read
+  contents: write # create the vX.Y tag and publish the GitHub Release
 
 concurrency:
   group: android-release-${{ github.ref }}
@@ -101,6 +102,14 @@ jobs:
           ./gradlew --no-daemon assembleRelease bundleRelease | tee build.log
           ver=$(grep -oE 'MisLibros version: .*' build.log | head -1)
           echo "### ${ver:-build complete}" >> "$GITHUB_STEP_SUMMARY"
+          # Parse "MisLibros version: 1.1 (versionCode 2)" -> version=1.1, tag=v1.1
+          version=$(printf '%s' "$ver" | sed -nE 's/^MisLibros version: ([^ ]+).*/\1/p')
+          if [ -z "$version" ]; then
+            echo "::error::Could not parse versionName from build log; cannot tag the release."
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
 
       - name: Verify artifacts are signed
         working-directory: client/android
@@ -111,16 +120,19 @@ jobs:
           jarsigner -verify "$aab" | grep -q "jar verified" || { echo "::error::AAB is not signed"; exit 1; }
           echo "Signed APK + AAB verified."
 
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
+      # Creates the vX.Y tag on this commit (advancing the tag count that
+      # build.gradle uses for the next versionCode) and publishes a Release
+      # with the signed APK + AAB attached. Tag creation is not blocked by
+      # branch protection, so this works for both PR-merge and direct push.
+      - name: Publish GitHub Release with APK + AAB
+        uses: softprops/action-gh-release@v2
         with:
-          name: mislibros-apk
-          path: client/android/app/build/outputs/apk/release/app-release.apk
-          if-no-files-found: error
-
-      - name: Upload AAB
-        uses: actions/upload-artifact@v4
-        with:
-          name: mislibros-aab
-          path: client/android/app/build/outputs/bundle/release/app-release.aab
-          if-no-files-found: error
+          tag_name: ${{ steps.build.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: MisLibros ${{ steps.build.outputs.version }}
+          generate_release_notes: true
+          make_latest: true
+          fail_on_unmatched_files: true
+          files: |
+            client/android/app/build/outputs/apk/release/app-release.apk
+            client/android/app/build/outputs/bundle/release/app-release.aab
