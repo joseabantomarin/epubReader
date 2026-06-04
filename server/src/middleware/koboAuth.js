@@ -11,7 +11,9 @@ export function makeKoboAuth(db) {
   return function koboAuth(req, res, next) {
     const token = req.params.authToken;
     const userId = token ? findUserIdByToken(db, token) : null;
-    if (!userId) return res.status(401).json({ error: 'invalid_kobo_token' });
+    // userId === null means missing/unknown token; compare to null so a real
+    // user_id of 0 would never be treated as unauthenticated.
+    if (userId === null) return res.status(401).json({ error: 'invalid_kobo_token' });
     touchDevice(db, token);
     req.koboUserId = userId;
     req.koboToken = token;
