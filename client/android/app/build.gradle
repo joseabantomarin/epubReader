@@ -1,7 +1,7 @@
 apply plugin: 'com.android.application'
 
-// Release signing config — reads from android/keystore.properties (gitignored)
-// or from env vars (MISLIBROS_KEYSTORE_PATH / _PASSWORD / _ALIAS).
+// Release signing config: reads from android/keystore.properties (gitignored)
+// or from env vars (MISLIBROS_KEYSTORE_PATH / _PASSWORD / _ALIAS / _KEY_PASSWORD).
 def keystorePropsFile = rootProject.file('keystore.properties')
 def signingProps = new Properties()
 if (keystorePropsFile.exists()) {
@@ -12,6 +12,61 @@ def ksPass    = signingProps['storePassword'] ?: System.getenv('MISLIBROS_KEYSTO
 def ksAlias   = signingProps['keyAlias']    ?: System.getenv('MISLIBROS_KEYSTORE_ALIAS') ?: 'mislibros'
 def ksKeyPass = signingProps['keyPassword'] ?: System.getenv('MISLIBROS_KEY_PASSWORD') ?: ksPass
 
+// ---- Dynamic versioning from git (see OPS.md "Versionado de la app") ----
+// versionName: semver derived from the latest `v*` tag plus the strongest
+//   conventional-commit type since that tag: breaking (`!:` / BREAKING CHANGE)
+//   -> major, any `feat` -> minor, otherwise -> patch.
+// versionCode: number of `v*` release tags + 1 (one tag per release => +1 each).
+// Falls back to FALLBACK_* when git/tags are unavailable (e.g. building outside
+// a git checkout), so the build never breaks.
+def FALLBACK_VERSION_NAME = "1.0"
+def FALLBACK_VERSION_CODE = 1
+
+def git = { String cmd ->
+    try {
+        // Non-login shell ('-c', not '-lc'): a login shell would source profiles
+        // whose stdout would be captured here and corrupt the parsed value.
+        def p = new ProcessBuilder(['bash', '-c', cmd])
+            .directory(rootProject.projectDir)
+            .redirectErrorStream(true)
+            .start()
+        p.waitFor()
+        if (p.exitValue() == 0) return p.inputStream.text.trim()
+        logger.warn("Versioning: git command failed (exit ${p.exitValue()}), using fallback: ${cmd}")
+        return null
+    } catch (Exception e) {
+        logger.warn("Versioning: git command errored, using fallback: ${cmd} (${e.message})")
+        return null
+    }
+}
+
+def computeVersionName = {
+    def lastTag = git("git describe --tags --abbrev=0 --match 'v[0-9]*' 2>/dev/null")
+    if (!lastTag) return FALLBACK_VERSION_NAME
+    def m = (lastTag =~ /v(\d+)\.(\d+)(?:\.(\d+))?/)
+    if (!m.find()) return FALLBACK_VERSION_NAME
+    int major = m.group(1) as int
+    int minor = m.group(2) as int
+    int patch = (m.group(3) ?: '0') as int
+    def subjects = git("git log ${lastTag}..HEAD --pretty=%s 2>/dev/null") ?: ""
+    def lines = subjects.readLines()
+    def breaking = lines.any { it ==~ /^[a-z]+(\([^)]*\))?!:.*/ || it.contains('BREAKING CHANGE') }
+    def feature  = lines.any { it ==~ /^feat(\([^)]*\))?:.*/ }
+    if (breaking)     { major++; minor = 0; patch = 0 }
+    else if (feature) { minor++; patch = 0 }
+    else              { patch++ }
+    return patch == 0 ? "${major}.${minor}" : "${major}.${minor}.${patch}"
+}
+
+def computeVersionCode = {
+    def count = git("git tag -l 'v[0-9]*' 2>/dev/null | wc -l")
+    return (count != null && count.isInteger()) ? (count as int) + 1 : FALLBACK_VERSION_CODE
+}
+
+def APP_VERSION_NAME = computeVersionName()
+def APP_VERSION_CODE = computeVersionCode()
+logger.lifecycle("MisLibros version: ${APP_VERSION_NAME} (versionCode ${APP_VERSION_CODE})")
+
 android {
     namespace = "app.openlinks.mislibros"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -19,8 +74,8 @@ android {
         applicationId "app.openlinks.mislibros"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode APP_VERSION_CODE
+        versionName APP_VERSION_NAME
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

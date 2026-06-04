@@ -2,6 +2,9 @@ node_modules/
 dist/
 .env
 .env.local
+# Native build pointed at a local backend: holds a personal LAN IP, not a secret.
+.env.androidlocal
+.env.*.local
 server/data/
 .DS_Store
 *.log
@@ -11,3 +14,6 @@ mislibros*.apk
 
 # Superpowers brainstorming visual companion
 .superpowers/
+
+# Playwright CLI sessions + store screenshots
+.playwright-cli/

@@ -92,30 +92,63 @@ backend (`sudo systemctl restart epubreader.service`).
 
 ## Build + publicar APK
 
-**CRÍTICO**: el APK necesita `VITE_API_BASE=https://mislibros.openlinks.app` (URL absoluta) en el build. Si queda vacío (como en el `.env` del repo, que está pensado para web), todas las llamadas a `/api/...` se quedan en `localhost` del webview de Capacitor y NADA funciona (ni login ni nada). El bundle minificado debe contener `const go="https://mislibros.openlinks.app"`.
+**CRÍTICO**: el build nativo necesita `VITE_API_BASE=https://mislibros.openlinks.app` (URL absoluta). Si queda vacío (como en el build web, pensado para rutas relativas del mismo origen), todas las llamadas a `/api/...` se quedan en el `localhost` del webview de Capacitor y NADA funciona (ni login ni nada).
+
+Esto ya **no** se parchea a mano. La URL vive en `client/.env.android` (commiteado) y la carga el modo de Vite `--mode android`:
+
+- `npm run build:android` → build nativo contra **producción** (`.env.android`).
+- `npm run build:android:local` → build nativo contra un **backend local** (`.env.androidlocal`, gitignored; copiar de `.env.androidlocal.example` y poner la IP de tu LAN).
+- `npm run build` → build **web** (sin `VITE_API_BASE`, rutas relativas). No tocar para el APK.
 
 Java 21 es obligatorio (Capacitor 8). Java 25 del sistema NO sirve.
 
+### Versionado de la app (automático desde git)
+
+`versionCode` y `versionName` **ya no se editan a mano**: `client/android/app/build.gradle`
+los calcula en cada build a partir del historial de git, usando tags de release `vX.Y`
+como ancla.
+
+- **`versionName`** = el último tag `v*` + el cambio semántico más fuerte desde ese tag:
+  - commit con `!:` o `BREAKING CHANGE` -> sube **major** (`1.x` -> `2.0`)
+  - algún `feat:` -> sube **minor** (`1.0` -> `1.1`)
+  - solo `fix:` / `chore:` / etc. -> sube **patch** (`1.1` -> `1.1.1`)
+- **`versionCode`** = número de tags `v*` + 1 (un tag por release => +1 cada vez). El Play
+  Store rechaza un `.aab`/`.apk` con un `versionCode` ya usado, por eso debe subir siempre.
+- Si git o los tags no están disponibles, cae a los valores `FALLBACK_*` del `build.gradle`.
+
+**Flujo por release:** se versiona solo según los commits desde el último tag. Tras subir
+el build al Play Store, **crear y pushear el tag** para anclar el siguiente:
+
 ```bash
-cd /Users/joseabanto/Applications/epubReader/client
-# 1) parchear .env temporalmente con la URL absoluta
-cp .env .env.web.bak
-echo "VITE_GOOGLE_CLIENT_ID=823603281404-rgg8sb970f86cmqo91vgi6ibh0ph8ban.apps.googleusercontent.com" > .env
-echo "VITE_API_BASE=https://mislibros.openlinks.app" >> .env
-# 2) build + sync + APK
-npm run build
+# El build imprime la versión calculada, p.ej.:  "MisLibros version: 1.1 (versionCode 2)"
+git tag -a v1.1 -m "Release 1.1" && git push origin v1.1
+```
+
+Si olvidas el tag, el próximo build repite el mismo `versionCode` y el Play Store lo
+rechaza. Tag base actual: `v1.0` (en el commit `8383756`).
+
+**foliate-js** (motor del lector) se vendoriza solo: el hook `prebuild` corre
+`client/scripts/vendor-foliate.sh` antes de cada build y lo baja a `client/public/foliate-js/`
+si falta (gitignored, no está en npm). Sin él, la app compila pero abrir cualquier libro
+falla con `Failed to fetch dynamically imported module: .../foliate-js/view.js`. Está fijado
+a un commit; refrescar con `FOLIATE_FORCE=1` o cambiar `FOLIATE_REF`.
+
+```bash
+cd <repo>/client
+# 1) build nativo (producción) + sync + APK   (sin tocar ningún .env a mano)
+#    (prebuild vendoriza foliate-js automáticamente si falta)
+npm run build:android
 npx cap sync android
 cd android
-JAVA_HOME=/Users/joseabanto/jdks/jdk-21.0.11+10/Contents/Home ./gradlew assembleRelease
-# 3) verificar que la URL absoluta esté en el bundle
-grep -oE 'const [a-z][a-z]?="https://mislibros[^"]*"' ../dist/assets/index-*.js
-# 4) subir
+JAVA_HOME=<ruta-jdk-21> ./gradlew assembleRelease   # o bundleRelease para el .aab del Play Store
+# 2) verificar que la URL absoluta esté en el bundle
+grep -oE '"https://mislibros\.openlinks\.app"' ../dist/assets/index-*.js
+# 3) subir el APK público
 scp app/build/outputs/apk/release/app-release.apk \
     administrator@147.93.176.249:/home/administrator/epubReader/server/data/downloads/mislibros.apk
-# 5) restaurar .env (el build web necesita VITE_API_BASE vacío para usar rutas relativas)
-cd /Users/joseabanto/Applications/epubReader/client
-mv .env.web.bak .env
 ```
+
+Firma: lee `client/android/keystore.properties` (gitignored) o las env vars `MISLIBROS_KEYSTORE_*`. Ver "Firma de release" abajo.
 
 ## JDKs instalados localmente
 

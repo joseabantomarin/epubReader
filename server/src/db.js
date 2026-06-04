@@ -79,6 +79,18 @@ CREATE TABLE IF NOT EXISTS group_members (
 CREATE INDEX IF NOT EXISTS idx_group_members_group ON group_members(group_id);
 CREATE INDEX IF NOT EXISTS idx_group_members_user ON group_members(user_id);
 CREATE INDEX IF NOT EXISTS idx_group_members_email ON group_members(email);
+
+CREATE TABLE IF NOT EXISTS kobo_devices (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token         TEXT    UNIQUE NOT NULL,
+  name          TEXT,
+  last_seen_at  TEXT,
+  last_db_hash  TEXT,
+  created_at    TEXT    DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_kobo_devices_user ON kobo_devices(user_id);
+CREATE INDEX IF NOT EXISTS idx_kobo_devices_token ON kobo_devices(token);
 `;
 
 function hasColumn(db, table, column) {
@@ -129,6 +141,26 @@ export function openDb(filePath) {
   }
   if (!hasColumn(db, 'books', 'share_user_id')) {
     db.exec('ALTER TABLE books ADD COLUMN share_user_id INTEGER');
+  }
+  // Kobo: stable UUID the device sees + where the book originated.
+  if (!hasColumn(db, 'books', 'kobo_uuid')) {
+    db.exec('ALTER TABLE books ADD COLUMN kobo_uuid TEXT');
+  }
+  if (!hasColumn(db, 'books', 'source')) {
+    db.exec("ALTER TABLE books ADD COLUMN source TEXT NOT NULL DEFAULT 'web'");
+  }
+  // Kobo: native reading location alongside the existing CFI position.
+  if (!hasColumn(db, 'reading_progress', 'kobo_chapter_id')) {
+    db.exec('ALTER TABLE reading_progress ADD COLUMN kobo_chapter_id TEXT');
+  }
+  if (!hasColumn(db, 'reading_progress', 'kobo_chapter_progress')) {
+    db.exec('ALTER TABLE reading_progress ADD COLUMN kobo_chapter_progress REAL');
+  }
+  if (!hasColumn(db, 'reading_progress', 'kobo_location_value')) {
+    db.exec('ALTER TABLE reading_progress ADD COLUMN kobo_location_value TEXT');
+  }
+  if (!hasColumn(db, 'reading_progress', 'source')) {
+    db.exec('ALTER TABLE reading_progress ADD COLUMN source TEXT');
   }
   return db;
 }
