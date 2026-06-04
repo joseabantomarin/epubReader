@@ -30,6 +30,9 @@ export function createApp(options = {}) {
   app.set('trust proxy', 1);
 
   if (!isTest) {
+    // The Kobo device token lives in the URL path and IS a credential, so keep
+    // it out of access logs by redacting the /kobo/<token> segment.
+    morgan.token('url', (req) => (req.originalUrl || req.url).replace(/\/kobo\/[^/?]+/, '/kobo/[redacted]'));
     app.use(morgan(isProd ? 'combined' : 'dev'));
     app.use(helmet({
       contentSecurityPolicy: {

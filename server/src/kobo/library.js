@@ -13,9 +13,14 @@ export function ensureBookUuid(db, book) {
   return uuid;
 }
 
-/** @param {import('better-sqlite3').Database} db @param {number} userId */
+/**
+ * Books eligible for Kobo sync. EPUB only for now: sub-project A serves the
+ * original EPUB (KEPUB conversion is deferred to B), and a stock Kobo cannot
+ * open a PDF that is advertised as an EPUB entitlement.
+ * @param {import('better-sqlite3').Database} db @param {number} userId
+ */
 export function listSyncBooks(db, userId) {
-  return db.prepare('SELECT * FROM books WHERE user_id = ? ORDER BY id').all(userId);
+  return db.prepare("SELECT * FROM books WHERE user_id = ? AND format = 'epub' ORDER BY id").all(userId);
 }
 
 /** @param {import('better-sqlite3').Database} db @param {number} userId @param {string} uuid */
