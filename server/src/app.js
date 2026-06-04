@@ -15,6 +15,8 @@ import { createAnnotationsRouter } from './routes/annotations.js';
 import { createSharedRouter } from './routes/shared.js';
 import { createAIRouter } from './routes/ai.js';
 import { createGroupsRouter } from './routes/groups.js';
+import { createDevicesRouter } from './routes/devices.js';
+import { createKoboRouter } from './routes/kobo.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -78,6 +80,7 @@ export function createApp(options = {}) {
   app.use('/api/books', createAnnotationsRouter(db));
   app.use('/api/shared', createSharedRouter(db, dataDir));
   app.use('/api/groups', createGroupsRouter(db));
+  app.use('/api/devices', createDevicesRouter(db));
 
   if (!isTest) {
     app.use('/api/ai', rateLimit({ windowMs: 60_000, max: 20 }));
@@ -96,6 +99,9 @@ export function createApp(options = {}) {
       },
     }));
   }
+
+  // Kobo device sync protocol (path-token auth, no Google JWT).
+  app.use('/kobo/:authToken', createKoboRouter(db, dataDir));
 
   if (isProd) {
     const clientDist = path.resolve(__dirname, '..', '..', 'client', 'dist');
