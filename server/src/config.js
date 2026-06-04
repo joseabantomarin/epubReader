@@ -20,9 +20,12 @@ export const config = {
   // Comma-separated emails that may censor shared books.
   adminEmails: (process.env.ADMIN_EMAILS || '')
     .split(',').map(s => s.trim().toLowerCase()).filter(Boolean),
-  // Groq (AI explain). Optional — if no key, the AI endpoint is disabled.
+  // Groq (AI explain). Optional - if no key, the AI endpoint is disabled.
   groqApiKey: process.env.GROQ_API_KEY || '',
   groqModel: process.env.GROQ_MODEL || 'llama-3.1-8b-instant',
+  // External base URL the Kobo device reaches us at (no trailing slash).
+  // Used to build absolute DownloadUrls and cover-image templates.
+  publicUrl: (process.env.PUBLIC_URL || `http://localhost:${Number(process.env.PORT || 3001)}`).replace(/\/$/, ''),
 };
 
 export function isAdminEmail(email) {
