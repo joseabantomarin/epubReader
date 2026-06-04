@@ -50,17 +50,18 @@ export function createKoboRouter(db, dataDir) {
     let truncated = false;
 
     for (const book of listSyncBooks(db, userId)) {
-      if (book.id > maxLastId) maxLastId = book.id;
-      if (book.id > lastId) {
-        if (results.length >= SYNC_ITEM_LIMIT) { truncated = true; break; }
-        const uuid = ensureBookUuid(db, book);
-        results.push({
-          NewEntitlement: {
-            BookEntitlement: createBookEntitlement(book, uuid),
-            BookMetadata: getMetadata(baseUrl, req.koboToken, book, uuid),
-          },
-        });
-      }
+      if (book.id <= lastId) continue;
+      if (results.length >= SYNC_ITEM_LIMIT) { truncated = true; break; }
+      const uuid = ensureBookUuid(db, book);
+      results.push({
+        NewEntitlement: {
+          BookEntitlement: createBookEntitlement(book, uuid),
+          BookMetadata: getMetadata(baseUrl, req.koboToken, book, uuid),
+        },
+      });
+      // Advance the cursor only after a successful emit, so the book that trips
+      // the page limit is re-sent on the next sync rather than skipped forever.
+      maxLastId = book.id;
     }
 
     if (!truncated) {
@@ -68,17 +69,17 @@ export function createKoboRouter(db, dataDir) {
         SELECT rp.*, b.kobo_uuid AS uuid
           FROM reading_progress rp JOIN books b ON b.id = rp.book_id
          WHERE b.user_id = ?
+         ORDER BY rp.last_read_at
       `).all(userId);
       for (const p of progresses) {
-        // Reading-state cursor is epoch-based at 1-second resolution. A device
-        // PUTs one state at a time, so same-second collisions are not a concern
-        // here the way they are for bulk book inserts.
         const epoch = toEpoch(p.last_read_at);
+        if (!p.uuid || epoch <= inTok.reading_state_last_modified) continue;
+        if (results.length >= SYNC_ITEM_LIMIT) { truncated = true; break; }
+        results.push({ ChangedReadingState: { ReadingState: getReadingStateResponse(p.uuid, p) } });
+        // Advance only after emit (same boundary-safety as the books loop). The
+        // epoch cursor is 1-second resolution; reading states are not bulk
+        // written by a device, so same-second collisions are not a concern.
         if (epoch > maxRs) maxRs = epoch;
-        if (p.uuid && epoch > inTok.reading_state_last_modified) {
-          if (results.length >= SYNC_ITEM_LIMIT) { truncated = true; break; }
-          results.push({ ChangedReadingState: { ReadingState: getReadingStateResponse(p.uuid, p) } });
-        }
       }
     }
 
