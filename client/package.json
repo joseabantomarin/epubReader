@@ -4,8 +4,15 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "vendor:foliate": "bash scripts/vendor-foliate.sh",
+    "predev": "npm run vendor:foliate",
     "dev": "vite",
+    "prebuild": "npm run vendor:foliate",
     "build": "vite build",
+    "prebuild:android": "npm run vendor:foliate",
+    "build:android": "vite build --mode android",
+    "prebuild:android:local": "npm run vendor:foliate",
+    "build:android:local": "vite build --mode androidlocal",
     "preview": "vite preview",
     "test": "vitest run"
   },
