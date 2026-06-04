@@ -116,16 +116,20 @@ como ancla.
   Store rechaza un `.aab`/`.apk` con un `versionCode` ya usado, por eso debe subir siempre.
 - Si git o los tags no están disponibles, cae a los valores `FALLBACK_*` del `build.gradle`.
 
-**Flujo por release:** se versiona solo según los commits desde el último tag. Tras subir
-el build al Play Store, **crear y pushear el tag** para anclar el siguiente:
+**Flujo por release (automático en CI):** ya **no** se taggea a mano. El workflow
+`Android release build` corre en cada push a `main` (un merge de PR también es un push a
+`main`, así que cubre ambos casos), compila el APK + AAB firmados, **crea el tag `vX.Y`**
+sobre ese commit y publica un **GitHub Release** con los dos archivos adjuntos y notas
+autogeneradas. Crear el tag avanza el conteo que usa `build.gradle`, así que el siguiente
+push obtiene el `versionCode` siguiente solo.
 
-```bash
-# El build imprime la versión calculada, p.ej.:  "MisLibros version: 1.1 (versionCode 2)"
-git tag -a v1.1 -m "Release 1.1" && git push origin v1.1
-```
+El tag es la única fuente de verdad del versionado: no se commitea ningún número a un
+archivo, el `versionCode`/`versionName` se calculan del historial de tags en cada build y
+quedan horneados dentro del APK/AAB. Para publicar en Play Store: solo haz push, baja el
+`.aab` desde la página del Release y súbelo. El crear el tag no lo bloquea la branch
+protection, por eso funciona igual con PR o con push directo a `main`.
 
-Si olvidas el tag, el próximo build repite el mismo `versionCode` y el Play Store lo
-rechaza. Tag base actual: `v1.0` (en el commit `8383756`).
+Último tag actual: `v1.1` (commit `dcf0a2f`); el siguiente push a `main` saca `v1.2`.
 
 **foliate-js** (motor del lector) se vendoriza solo: el hook `prebuild` corre
 `client/scripts/vendor-foliate.sh` antes de cada build y lo baja a `client/public/foliate-js/`
