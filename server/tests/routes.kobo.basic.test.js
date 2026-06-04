@@ -10,14 +10,15 @@ import { ensureBookUuid } from '../src/kobo/library.js';
 import { createKoboRouter } from '../src/routes/kobo.js';
 import { ensureUserDir, bookPath } from '../src/storage.js';
 
-let db, user, token, tmp, app, bookId, uuid;
+let db, user, token, tmp, app, bookId;
 beforeEach(() => {
   tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'kobo-'));
   db = makeDb();
   user = insertUser(db);
   token = createDevice(db, user.id).token;
   bookId = db.prepare("INSERT INTO books (user_id, title, file_path, file_size, format) VALUES (?, 'Dune', 'p', 10, 'epub')").run(user.id).lastInsertRowid;
-  uuid = ensureBookUuid(db, db.prepare('SELECT * FROM books WHERE id = ?').get(bookId));
+  // Give the book a kobo_uuid so metadata/cover routes can resolve it.
+  ensureBookUuid(db, db.prepare('SELECT * FROM books WHERE id = ?').get(bookId));
   ensureUserDir(tmp, user.id);
   fs.writeFileSync(bookPath(tmp, user.id, bookId, 'epub'), 'EPUBBYTES');
   app = express();

@@ -45,14 +45,11 @@ export function createKoboRouter(db, dataDir) {
     // books inserted after the cursor are not missed.
     const lastId = inTok.books_last_id != null ? Number(inTok.books_last_id) : 0;
     const results = [];
-    let maxCreated = inTok.books_last_created;
     let maxLastId = lastId;
     let maxRs = inTok.reading_state_last_modified;
     let truncated = false;
 
     for (const book of listSyncBooks(db, userId)) {
-      const createdEpoch = toEpoch(book.uploaded_at);
-      if (createdEpoch > maxCreated) maxCreated = createdEpoch;
       if (book.id > maxLastId) maxLastId = book.id;
       if (book.id > lastId) {
         if (results.length >= SYNC_ITEM_LIMIT) { truncated = true; break; }
@@ -73,6 +70,9 @@ export function createKoboRouter(db, dataDir) {
          WHERE b.user_id = ?
       `).all(userId);
       for (const p of progresses) {
+        // Reading-state cursor is epoch-based at 1-second resolution. A device
+        // PUTs one state at a time, so same-second collisions are not a concern
+        // here the way they are for bulk book inserts.
         const epoch = toEpoch(p.last_read_at);
         if (epoch > maxRs) maxRs = epoch;
         if (p.uuid && epoch > inTok.reading_state_last_modified) {
@@ -84,8 +84,6 @@ export function createKoboRouter(db, dataDir) {
 
     const outTok = buildSyncToken({
       ...inTok,
-      books_last_created: maxCreated,
-      books_last_modified: maxCreated,
       books_last_id: maxLastId,
       reading_state_last_modified: maxRs,
     });
