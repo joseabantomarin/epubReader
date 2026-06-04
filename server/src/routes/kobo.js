@@ -40,15 +40,21 @@ export function createKoboRouter(db, dataDir) {
   r.get('/v1/library/sync', (req, res) => {
     const userId = req.koboUserId;
     const inTok = parseSyncToken(req.get(SYNC_TOKEN_HEADER));
+    // books_last_id tracks the highest book.id seen in a previous sync so that
+    // books inserted within the same second as the cursor are not re-sent and
+    // books inserted after the cursor are not missed.
+    const lastId = inTok.books_last_id != null ? Number(inTok.books_last_id) : 0;
     const results = [];
     let maxCreated = inTok.books_last_created;
+    let maxLastId = lastId;
     let maxRs = inTok.reading_state_last_modified;
     let truncated = false;
 
     for (const book of listSyncBooks(db, userId)) {
       const createdEpoch = toEpoch(book.uploaded_at);
       if (createdEpoch > maxCreated) maxCreated = createdEpoch;
-      if (createdEpoch > inTok.books_last_created) {
+      if (book.id > maxLastId) maxLastId = book.id;
+      if (book.id > lastId) {
         if (results.length >= SYNC_ITEM_LIMIT) { truncated = true; break; }
         const uuid = ensureBookUuid(db, book);
         results.push({
@@ -80,6 +86,7 @@ export function createKoboRouter(db, dataDir) {
       ...inTok,
       books_last_created: maxCreated,
       books_last_modified: maxCreated,
+      books_last_id: maxLastId,
       reading_state_last_modified: maxRs,
     });
     res.set(SYNC_TOKEN_HEADER, outTok);
