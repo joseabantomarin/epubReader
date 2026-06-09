@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
+import { ArrowLeft, Volume2, Square, Menu, Star, Settings, ChevronLeft, Maximize2 } from 'lucide-react';
 import styles from './reader.module.css';
 import { api, bookFileUrl, sharedFileUrl, getToken } from '../lib/api.js';
 import { getBookFile, putBookFile } from '../lib/offlineCache.js';
@@ -16,6 +17,7 @@ import NoteModal from './NoteModal.jsx';
 import AnnotationsDrawer from './AnnotationsDrawer.jsx';
 import { useReadAloud } from './useReadAloud.js';
 import ReadAloudDialog from './ReadAloudDialog.jsx';
+import SettingsModal from '../library/SettingsModal.jsx';
 
 // foliate-js is loaded as a static asset from /public; defining 'foliate-view'
 // as a custom element. We dynamically import it once per session. The URL is
@@ -660,6 +662,7 @@ export default function ReaderPage() {
   }, [reading]);
 
   const [readDialogOpen, setReadDialogOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const onSpeakerClick = useCallback(() => {
     if (reading) { stopReadAloud(); return; }
     setReadDialogOpen(true);
@@ -677,6 +680,7 @@ export default function ReaderPage() {
   const availableActions = [
     toc.length > 0 && 'toc',
     !isShared && 'annotations',
+    'settings',
     !isNative && 'fullscreen',
   ].filter(Boolean);
   const indicatorAction = availableActions.includes(lastAction)
@@ -703,9 +707,7 @@ export default function ReaderPage() {
     <main className={styles.page}>
       <header className={styles.header}>
         <button className={styles.back} onClick={goBack} aria-label="Volver">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.75" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M19 12H5M12 19l-7-7 7-7"/>
-          </svg>
+          <ArrowLeft size={18} strokeWidth={2.75} />
         </button>
         <div className={styles.titleBox}>
           <h1 className={styles.title}>{title}</h1>
@@ -716,13 +718,7 @@ export default function ReaderPage() {
           onClick={onSpeakerClick}
           aria-label={reading ? 'Detener lectura' : 'Leer en voz alta'}
           title={reading ? 'Detener lectura' : 'Leer en voz alta'}>
-          {reading ? (
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
-          ) : (
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a9 9 0 0 1 0 14"/>
-            </svg>
-          )}
+          {reading ? <Square size={16} fill="currentColor" strokeWidth={0} /> : <Volume2 size={16} strokeWidth={2} />}
         </button>
         {/* On small web screens these collapse behind the toggle; desktop and
             Android (native) always show them inline. */}
@@ -731,12 +727,20 @@ export default function ReaderPage() {
           data-native={isNative ? 'true' : 'false'}>
           {toc.length > 0 && (
             <button className={styles.back} onClick={() => { setTocOpen(true); recordAction('toc'); }}
-              aria-label="Índice de capítulos" title="Índice de capítulos">☰</button>
+              aria-label="Índice de capítulos" title="Índice de capítulos">
+              <Menu size={16} strokeWidth={2} />
+            </button>
           )}
           {!isShared && (
             <button className={styles.back} onClick={() => { setAnnotationsOpen(true); recordAction('annotations'); }}
-              aria-label="Subrayados" title="Subrayados">★</button>
+              aria-label="Subrayados" title="Subrayados">
+              <Star size={16} strokeWidth={2} />
+            </button>
           )}
+          <button className={styles.back} onClick={() => { setSettingsOpen(true); recordAction('settings'); }}
+            aria-label="Ajustes del lector" title="Ajustes del lector">
+            <Settings size={16} strokeWidth={2} />
+          </button>
           {!isNative && (
             <FullscreenButton className={styles.back} isFullscreen={isFullscreen}
               onToggle={() => { toggleFullscreen(); recordAction('fullscreen'); }} hint="F" />
@@ -843,6 +847,7 @@ export default function ReaderPage() {
         onJump={pickAnnotation}
         onClose={() => setAnnotationsOpen(false)}
       />
+      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </main>
   );
 }
@@ -864,29 +869,16 @@ function TocList({ items, onPick, depth = 0 }) {
   );
 }
 
-// Chevron for the collapsed actions toggle (points left when closed).
 function ChevronIcon({ className }) {
-  return (
-    <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M15 18l-6-6 6-6"/>
-    </svg>
-  );
+  return <ChevronLeft className={className} size={16} strokeWidth={2.5} />;
 }
 
-// Icon shown next to the chevron when collapsed — mirrors the last action used.
 function ActionIcon({ action }) {
   switch (action) {
-    case 'toc':
-      return <span aria-hidden="true">☰</span>;
-    case 'annotations':
-      return <span aria-hidden="true">★</span>;
-    case 'fullscreen':
-      return (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/>
-        </svg>
-      );
-    default:
-      return null;
+    case 'toc':         return <Menu size={16} strokeWidth={2} />;
+    case 'annotations': return <Star size={16} strokeWidth={2} />;
+    case 'settings':    return <Settings size={16} strokeWidth={2} />;
+    case 'fullscreen':  return <Maximize2 size={16} strokeWidth={2} />;
+    default:            return null;
   }
 }
