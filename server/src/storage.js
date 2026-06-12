@@ -5,6 +5,17 @@ export function bookPath(dataDir, userId, bookId, format = 'epub') {
   return path.join(dataDir, 'books', String(userId), `${bookId}.${format}`);
 }
 
+/**
+ * Return the canonical path for a user's KEPUB file.
+ * @param {string} dataDir
+ * @param {number} userId
+ * @param {number} bookId
+ * @returns {string}
+ */
+export function kepubPath(dataDir, userId, bookId) {
+  return path.join(dataDir, 'books', String(userId), `${bookId}.kepub.epub`);
+}
+
 export function coverPath(dataDir, userId, bookId, ext) {
   return path.join(dataDir, 'books', String(userId), `${bookId}.${ext}`);
 }
