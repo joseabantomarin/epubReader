@@ -26,6 +26,9 @@ export const config = {
   // External base URL the Kobo device reaches us at (no trailing slash).
   // Used to build absolute DownloadUrls and cover-image templates.
   publicUrl: (process.env.PUBLIC_URL || `http://localhost:${Number(process.env.PORT || 3001)}`).replace(/\/$/, ''),
+  // External kepubify binary used to convert EPUB to KEPUB for the Kobo.
+  // Must be on PATH in production or set to an absolute path.
+  kepubifyBin: process.env.KEPUBIFY_BIN || 'kepubify',
 };
 
 export function isAdminEmail(email) {
