@@ -357,6 +357,60 @@ plan -> subagent-driven execution -> review cycle, like A):
 
 **Progress ownership:** reading position stays on A's native protocol channel
 (`/v1/library/:uuid/state`). The sqlite ingestion will NOT also write progress in
-B-2 to avoid two writers racing on `reading_progress`; B-5 handles web->device
-position separately. `reading_progress.source` (`'web'`|`'kobo'`) + `last_read_at`
-remain the last-writer-wins arbiter.
+the ingestion slice to avoid two writers racing on `reading_progress`; the
+write-back slice handles web->device position separately. `reading_progress.source`
+(`'web'`|`'kobo'`) + `last_read_at` remain the last-writer-wins arbiter.
+
+## 16. Addendum (2026-06-12): KEPUB dropped, plain EPUB + #point() -> CFI
+
+**This supersedes Section 7's kepubify-based mapping and the B-1 KEPUB slice.**
+
+The user observed (and internet research confirmed, well-sourced) that a stock Kobo
+Libra Colour on firmware 4.45 reads **plain sideloaded EPUB without converting it to
+KEPUB**, and produces **working highlights/notes** on that plain EPUB. Key facts:
+
+- Plain `.epub` annotations are an officially supported Kobo feature (Kobo's own
+  epub-spec: the ADE engine "enable[s] bookmarking and note keeping"). The "you need
+  KEPUB for highlights" belief is about *renaming* an EPUB to `.kepub.epub` WITHOUT
+  injecting koboSpans, which is a different (broken) state.
+- For a plain EPUB, `Bookmark.StartContainerPath` is a CFI-shaped path, e.g.
+  `OEBPS/text/ch1.xhtml#point(/1/4/2/4/38/1:6)`. The integer steps already follow the
+  CFI convention (even = element node, odd = text node); the trailing `:N` is a
+  **byte** offset into the final text node; `StartOffset`/`EndOffset` columns are
+  unused for these.
+- Therefore **Kobo `#point()` -> EPUB CFI is a near-identity transform**, which is
+  simpler and more reliable than koboSpan -> CFI, and serving the original EPUB keeps
+  the device and web-reader DOMs byte-identical. Serving KEPUB would *break* that
+  identity and (per Kobo's spec) can even disable notes for sideloaded books.
+
+**Decision: do NOT deliver KEPUB. Serve the original EPUB** (this reverts the B-1
+slice; the download route and `downloadUrls` are back to `Format: 'EPUB'` /
+`/download/:id/epub`). kepubify, `epub/kepub.js`, `kepubPath`, and `config.kepubifyBin`
+were removed.
+
+**Revised B decomposition (KEPUB slice dropped):**
+
+- **B-i - KoboReader.sqlite ingestion.** Agent upload endpoint + `epub/koboDb.js`
+  parser; upsert highlights/notes by `kobo_bookmark_id` with color mapping
+  (`Bookmark.Color`: NULL/0 yellow, 1 red/pink, 2 blue, 3 green); books-from-device.
+  Store the raw `#point()` path + text; `anchor_status` starts `'text'`. Server-side,
+  unit-testable with a fixture DB.
+- **B-ii - `#point()` -> CFI exact mapping** (`epub/locations.js`). Parse the
+  `#point(/a/b/c:byteOffset)` path: split off the file href (resolve its spine index
+  for the `/6/<n>!` CFI prefix), fix the leading `/1/` -> `/2/`, keep the rest of the
+  step path verbatim (no even/odd doubling - Kobo already encodes it), and convert the
+  **byte** offset to a character offset via a UTF-8 slice of the target text node.
+  Set `anchor_status='exact'`. Keep a text-content fuzzy-match fallback to self-heal
+  small shifts (whitespace / text-node normalization must match foliate-js). Reference:
+  `valeriangalliat/kobo-highlights-to-calibre` (`bookmark.js`). Unit-testable with an
+  EPUB fixture (no device, no kepub).
+- **B-iii - On-device agent.** NickelMenu + script + bundled static `curl`/CA + WiFi
+  handling; uploads `KoboReader.sqlite` and new sideloaded books. Validated on hardware.
+- **B-iv - Web -> device write-back.** Reverse map (CFI -> `#point()`) and inject
+  web-made highlights + position into the device `KoboReader.sqlite`. Riskiest; own
+  design pass first.
+
+**Tradeoff accepted:** plain EPUB loses on-device KEPUB-only niceties (per-chapter
+"minutes left", per-chapter page numbers, chapter-progress %, footnote previews,
+faster page turns). None affect highlight/note sync; reading position still syncs at
+whole-book granularity. The user accepted this.
