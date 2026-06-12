@@ -296,8 +296,67 @@ Each sub-project is its own plan → implementation cycle.
 
 ## 14. Out of scope (now)
 
-- Web → Kobo write-back (deferred to B2).
 - Store-endpoint **proxying** to Kobo (v1 stubs only).
 - Handwritten/stylus annotations (Sage/Elipsa/Libra Colour) beyond what is text in
   `Bookmark`.
 - Non-EPUB formats on the Kobo (PDF/CBZ) for highlight mapping.
+
+## 15. Addendum (2026-06-04): sub-project A merged, B/B2 scope + device findings
+
+**Status:** Sub-project A is merged to `main` (PR #2). B work proceeds on
+`feature/kobo-sync-b`.
+
+**Firmware confirmed: 4.45.23646** (Libra Colour, the "Monza" 4.x line, released
+early 2026). Tooling support verified:
+- NickelMenu **v0.6.0+** supports the Libra Colour on 4.4x. The old "~4.31" figure
+  was a *tested-range* note, not a ceiling; the only hard incompatibility is
+  firmware **5.x, which does not exist** for these devices. KFMon is device-agnostic
+  (fw >= 2.9). KOReader works on the Libra Colour.
+- Risk retired: the on-device agent approach is viable on this device.
+
+**Highlights source decision:** read **stock Kobo reader** highlights from
+`KoboReader.sqlite`. KOReader stores its highlights in per-book sidecar files, NOT
+in `KoboReader.sqlite`, so the agent captures only native-reader annotations (the
+expected reading path on a stock device).
+
+**Color mapping** (`Bookmark.Color`, conditionally-present integer column on color
+devices): `NULL/0` = yellow, `1` = red/pink, `2` = blue, `3` = green. Map to
+`annotations.color` hex. Verify on-device with one highlight per color before
+relying on it (build .23646 is newer than public docs).
+
+**On-device agent engineering risks (the real ones, not the protocol):**
+- **TLS.** Device userland is BusyBox; `wget` has weak/no cert validation and there
+  is no `curl` by default. The agent must **bundle a statically-linked `curl` + its
+  own CA bundle** for the HTTPS upload. Do not rely on `--no-check-certificate`.
+- **WiFi.** Nickel powers WiFi down aggressively. The agent must bring it up
+  (`nickel_wifi:autoconnect`) and **poll for connectivity** before uploading.
+
+**Scope expanded:** B2 (web -> device write-back) is now IN scope per the user.
+
+**Decomposition of B + B2 into ordered, shippable plans** (each its own
+plan -> subagent-driven execution -> review cycle, like A):
+
+- **B-1 - KEPUB delivery.** Integrate **kepubify**; serve books as KEPUB (lazy,
+  cached at `books.kepub_path`) instead of plain EPUB, so device highlights carry
+  koboSpans (prerequisite for exact anchoring). One-time library re-sync on device.
+  Server-side, unit-testable.
+- **B-2 - KoboReader.sqlite ingestion (text-anchored).** `routes/koboAgent.js`
+  upload endpoint + `epub/koboDb.js` parser; upsert highlights/notes by
+  `kobo_bookmark_id` with color mapping; books-from-device. Highlights land
+  text-anchored first. Server-side, unit-testable with a fixture DB.
+- **B-3 - Exact CFI mapping.** `epub/locations.js` koboSpan<->CFI via the kepubify
+  text-invariance bridge (verify the linchpin assumption first). Promotes
+  `anchor_status` to `exact`. Unit-testable with EPUB+kepub fixtures.
+- **B-4 - On-device agent.** NickelMenu config + shell script + bundled static
+  `curl`/CA + WiFi handling; uploads `KoboReader.sqlite` and new sideloaded books.
+  Validated on hardware.
+- **B-5 (B2) - Web -> device write-back.** Agent pulls a writeback payload and
+  injects web-made highlights (CFI -> koboSpan reverse map) and web reading position
+  into the device `KoboReader.sqlite`. Riskiest (mutating the live DB); its own
+  design pass (when to write vs Nickel, conflict handling) precedes its plan.
+
+**Progress ownership:** reading position stays on A's native protocol channel
+(`/v1/library/:uuid/state`). The sqlite ingestion will NOT also write progress in
+B-2 to avoid two writers racing on `reading_progress`; B-5 handles web->device
+position separately. `reading_progress.source` (`'web'`|`'kobo'`) + `last_read_at`
+remain the last-writer-wins arbiter.
