@@ -13,12 +13,12 @@ const book = {
 const UUID = '11111111-1111-1111-1111-111111111111';
 
 describe('kobo/serializers', () => {
-  it('downloadUrls points at our download route with KEPUB format', () => {
+  it('downloadUrls points at our download route with EPUB format', () => {
     const [d] = downloadUrls(BASE, TOKEN, book);
-    expect(d.Format).toBe('KEPUB');
+    expect(d.Format).toBe('EPUB');
     expect(d.Size).toBe(1234);
     expect(d.Platform).toBe('Generic');
-    expect(d.Url).toBe('https://lib.example/kobo/abc123/download/7/kepub');
+    expect(d.Url).toBe('https://lib.example/kobo/abc123/download/7/epub');
   });
 
   it('entitlement uses the uuid for all id fields and is Active', () => {
@@ -37,7 +37,7 @@ describe('kobo/serializers', () => {
     expect(m.WorkId).toBe(UUID);
     expect(m.CoverImageId).toBe(UUID);
     expect(m.Contributors).toEqual(['Frank Herbert']);
-    expect(m.DownloadUrls[0].Url).toContain('/download/7/kepub');
+    expect(m.DownloadUrls[0].Url).toContain('/download/7/epub');
   });
 
   it('reading-state maps stored progress into CurrentBookmark', () => {
