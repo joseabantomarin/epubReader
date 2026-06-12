@@ -5,9 +5,9 @@ const STORE = 'https://storeapi.kobo.com';
 /** @param {string} baseUrl @param {string} token @param {{ id:number, file_size?:number }} book */
 export function downloadUrls(baseUrl, token, book) {
   return [{
-    Format: 'KEPUB',
+    Format: 'EPUB',
     Size: book.file_size || 0,
-    Url: `${baseUrl}/kobo/${token}/download/${book.id}/kepub`,
+    Url: `${baseUrl}/kobo/${token}/download/${book.id}/epub`,
     Platform: 'Generic',
   }];
 }
