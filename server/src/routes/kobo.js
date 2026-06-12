@@ -7,6 +7,7 @@ import { toEpoch, toKoboTimestamp } from '../kobo/format.js';
 import { ensureBookUuid, listSyncBooks, getBookByUuid } from '../kobo/library.js';
 import { koboResources, getMetadata, createBookEntitlement, getReadingStateResponse } from '../kobo/serializers.js';
 import { bookPath } from '../storage.js';
+import { ensureKepub } from '../epub/kepub.js';
 
 /**
  * Kobo sync protocol router. Mount at `/kobo/:authToken`.
@@ -156,14 +157,33 @@ export function createKoboRouter(db, dataDir) {
     });
   });
 
-  // GET /download/:bookId/:format -> the stored book file
-  r.get('/download/:bookId/:format', (req, res) => {
-    const id = Number(req.params.bookId);
-    if (!Number.isInteger(id)) return res.status(404).end();
-    const book = db.prepare('SELECT id, format FROM books WHERE id = ? AND user_id = ?').get(id, req.koboUserId);
-    if (!book) return res.status(404).end();
-    const file = bookPath(dataDir, req.koboUserId, book.id, book.format || 'epub');
-    res.type('application/epub+zip').sendFile(path.resolve(file));
+  // GET /download/:bookId/:format -> the book file. For format=kepub we serve a
+  // lazily-generated, cached KEPUB; if conversion fails we fall back to the
+  // original EPUB so the book always downloads.
+  r.get('/download/:bookId/:format', async (req, res, next) => {
+    try {
+      const id = Number(req.params.bookId);
+      if (!Number.isInteger(id)) return res.status(404).end();
+      const book = db.prepare('SELECT id, format FROM books WHERE id = ? AND user_id = ?').get(id, req.koboUserId);
+      if (!book) return res.status(404).end();
+
+      if (req.params.format === 'kepub') {
+        try {
+          const kpath = await ensureKepub(dataDir, req.koboUserId, book);
+          return res.type('application/epub+zip').sendFile(path.resolve(kpath));
+        } catch (err) {
+          console.error(`kepub conversion failed for book ${book.id}, serving epub:`, err.message);
+          // fall through to the EPUB
+        }
+      }
+
+      const file = bookPath(dataDir, req.koboUserId, book.id, book.format || 'epub');
+      res.type('application/epub+zip').sendFile(path.resolve(file));
+    } catch (err) {
+      // Express 4 does not forward async throws (e.g. a synchronous DB error)
+      // to the error handler, which would hang the request. Do it explicitly.
+      next(err);
+    }
   });
 
   // Cover: /:uuid/:width/:height/:isGreyscale/image.jpg (and the 5-arg quality variant)
