@@ -101,6 +101,20 @@ export default function ReaderPage() {
 
   useEffect(() => {
     let disposed = false;
+    // The foliate-view created by THIS effect invocation. Tracked locally (not
+    // just via viewRef) so cleanup tears down exactly the view this run made.
+    // Under React.StrictMode the effect mounts -> cleanup -> mounts again; the
+    // first run is async, so its cleanup can fire before viewRef is even set.
+    // Keying teardown off this local var (plus the disposed check after append)
+    // guarantees the first run's view is removed and the document isn't opened
+    // twice, so it never visibly reloads in dev.
+    let ownView = null;
+    // Teardown callbacks collected as each listener is registered. Run directly
+    // from the effect cleanup so removal never depends on how far `start()` got:
+    // unmounting mid-open (e.g. while goToFraction / annotation fetch is still
+    // awaiting) would otherwise leak the window/document listeners, since a
+    // single end-of-start cleanup handle wouldn't be assigned yet.
+    const cleanups = [];
 
     async function start() {
       try {
@@ -138,8 +152,12 @@ export default function ReaderPage() {
         if (progress?.cfi) lastSavedCfiRef.current = progress.cfi;
 
         const view = document.createElement('foliate-view');
+        // If this run was already disposed (StrictMode's first mount) bail before
+        // touching the DOM so we don't append a stray, never-cleaned-up view.
+        if (disposed) return;
         containerRef.current.appendChild(view);
         viewRef.current = view;
+        ownView = view;
 
         // Attach annotation / selection listeners BEFORE view.open(file) so the
         // first chapter's `load` event (fired during open) isn't missed —
@@ -232,6 +250,7 @@ export default function ReaderPage() {
         };
         applyColumnCount();
         window.addEventListener('resize', applyColumnCount);
+        cleanups.push(() => window.removeEventListener('resize', applyColumnCount));
 
         // Apply reader settings as CSS injected into the rendition.
         const settings = loadSettings();
@@ -331,10 +350,16 @@ export default function ReaderPage() {
         // side with a drop shadow; fade: a quick dissolve.
         const playPageTurn = (el, mode, forward) => {
           if (mode === 'fade') {
+            // relocate fires AFTER foliate has already painted the NEW page into
+            // the view, so dropping opacity to 0 here would briefly expose the
+            // empty viewport background behind the new page, which was the flash.
+            // Instead fade in from a high opacity floor: the new content stays
+            // continuously visible (never fully transparent), so the background
+            // is never revealed. The result is a gentle settle with no flicker.
             el.style.transition = 'none';
-            el.style.opacity = '0';
+            el.style.opacity = '0.6';
             void el.offsetWidth;            // commit the start state
-            el.style.transition = 'opacity 280ms ease';
+            el.style.transition = 'opacity 180ms ease';
             el.style.opacity = '1';
             return;
           }
@@ -431,11 +456,13 @@ export default function ReaderPage() {
         const onVisibility = () => { if (document.visibilityState === 'hidden') flush(); };
         document.addEventListener('visibilitychange', onVisibility);
         window.addEventListener('pagehide', flush);
-        view.__flush = flush;
-        view.__detachFlush = () => {
+        // Flush first (save the latest position), then detach. Pushed eagerly so
+        // an unmount mid-open still tears these down.
+        cleanups.push(() => {
+          try { flush(); } catch {}
           document.removeEventListener('visibilitychange', onVisibility);
           window.removeEventListener('pagehide', flush);
-        };
+        });
 
         // Keyboard navigation on the parent document.
         const onKey = (e) => {
@@ -447,6 +474,7 @@ export default function ReaderPage() {
           }
         };
         document.addEventListener('keydown', onKey);
+        cleanups.push(() => document.removeEventListener('keydown', onKey));
 
         // Hardware volume buttons on Android (Capacitor): MainActivity hijacks
         // KEYCODE_VOLUME_UP/DOWN and dispatches a 'hardwareVolume' CustomEvent.
@@ -457,12 +485,7 @@ export default function ReaderPage() {
           else if (which === 'volumeDown') leftSideAdvances ? view.prev() : view.next();
         };
         window.addEventListener('hardwareVolume', onVolume);
-
-        view.__cleanup = () => {
-          document.removeEventListener('keydown', onKey);
-          window.removeEventListener('hardwareVolume', onVolume);
-          window.removeEventListener('resize', applyColumnCount);
-        };
+        cleanups.push(() => window.removeEventListener('hardwareVolume', onVolume));
       } catch (e) {
         console.error('[reader] error', e);
         setError(e.message);
@@ -473,16 +496,21 @@ export default function ReaderPage() {
     start();
     return () => {
       disposed = true;
-      const v = viewRef.current;
+      // Run every teardown collected during start(), regardless of how far it
+      // got: this removes the window/document listeners even when we unmount
+      // mid-open (no dependence on a handle assigned only at the end).
+      for (const fn of cleanups) { try { fn(); } catch {} }
+      // Tear down the view THIS run created (ownView), falling back to viewRef
+      // for the synchronous case.
+      const v = ownView || viewRef.current;
       if (v) {
-        try { v.__flush?.(); } catch {}
-        try { v.__detachFlush?.(); } catch {}
-        try { v.__cleanup?.(); } catch {}
         try { v.__dim?.remove?.(); } catch {}
         try { v.close?.(); } catch {}
         try { v.remove?.(); } catch {}
       }
-      viewRef.current = null;
+      // Only null viewRef if it still points at our view, so a later mount's
+      // view (set by the next StrictMode run) isn't clobbered by this cleanup.
+      if (viewRef.current === v) viewRef.current = null;
     };
   }, [bookId, isShared]);
 
