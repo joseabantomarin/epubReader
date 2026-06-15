@@ -8,7 +8,7 @@ import { isPdfFile, extractPdfMeta } from '../lib/pdfMeta.js';
 import { useFullscreen } from '../lib/useFullscreen.js';
 import FullscreenButton from '../lib/FullscreenButton.jsx';
 import PitchSection from '../lib/PitchSection.jsx';
-import Avatar from '../lib/Avatar.jsx';
+import AvatarMenu from '../lib/AvatarMenu.jsx';
 import { listCachedBookIds } from '../lib/offlineCache.js';
 import { getCachedLibrary, saveCachedLibrary } from '../lib/offlineLibrary.js';
 import { getProgressLocal } from '../lib/offlineProgress.js';
@@ -276,8 +276,7 @@ export default function LibraryPage() {
                 <Users size={20} strokeWidth={2} />
               </button>
             )}
-            <Avatar user={user} className={styles.avatar} />
-            <button className={styles.logoutBtn} onClick={logout}>Salir</button>
+            <AvatarMenu user={user} onLogout={logout} styles={styles} />
           </div>
         )}
       </header>
