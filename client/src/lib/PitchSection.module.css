@@ -8,6 +8,28 @@
   gap: 20px;
 }
 
+/* "Descargar Aplicación" — large solid-green CTA at the top of the section
+   (web only). Spans the full block width to read as the primary action. */
+.downloadApp {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: var(--support);
+  color: white;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 16px;
+  padding: 15px 24px;
+  border-radius: 14px;
+  letter-spacing: 0.2px;
+  box-shadow: var(--shadow);
+  transition: filter .15s, transform .15s;
+}
+.downloadApp:hover { filter: brightness(1.08); transform: translateY(-1px); }
+.downloadAppIcon { flex: none; }
+
 .pitch {
   width: 100%;
   background: var(--card);
