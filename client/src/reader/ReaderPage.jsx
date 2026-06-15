@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
+import { Share } from '@capacitor/share';
 import { ArrowLeft, Volume2, Square, Menu, Star, Settings, ChevronLeft, Maximize2 } from 'lucide-react';
 import styles from './reader.module.css';
 import { api, bookFileUrl, sharedFileUrl, getToken } from '../lib/api.js';
@@ -588,8 +589,15 @@ export default function ReaderPage() {
   const onShare = async () => {
     if (!selection?.text) return;
     try {
-      if (navigator.share) await navigator.share({ text: selection.text, title });
-      else await navigator.clipboard?.writeText(selection.text);
+      if (Capacitor.isNativePlatform()) {
+        // Native Android: open the device share sheet. The user cancelling the
+        // sheet throws, so swallow it quietly.
+        await Share.share({ text: selection.text, title });
+      } else if (navigator.share) {
+        await navigator.share({ text: selection.text, title });
+      } else {
+        await navigator.clipboard?.writeText(selection.text);
+      }
     } catch {}
     clearSelection();
   };
