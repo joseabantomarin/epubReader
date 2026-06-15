@@ -21,6 +21,26 @@ export function createAnnotationsRouter(db) {
     };
   }
 
+  // Every annotation across all the user's books, joined with the book's
+  // title/author. A single-segment '/annotations/all' can't match the
+  // '/:id/annotations' route, so the two never collide.
+  r.get('/annotations/all', (req, res) => {
+    const rows = db.prepare(`
+      SELECT a.id, a.book_id, a.cfi, a.text, a.note, a.color, a.chapter, a.page,
+             a.created_at, a.updated_at, b.title, b.author
+      FROM annotations a
+      JOIN books b ON b.id = a.book_id
+      WHERE a.user_id = ?
+      ORDER BY b.title, a.id
+    `).all(req.user.sub);
+    res.json(rows.map(r => ({
+      id: r.id, bookId: r.book_id, cfi: r.cfi, text: r.text, note: r.note,
+      color: r.color, chapter: r.chapter, page: r.page,
+      title: r.title, author: r.author,
+      createdAt: r.created_at, updatedAt: r.updated_at,
+    })));
+  });
+
   r.get('/:id/annotations', (req, res) => {
     const book = ownedBook(req, res);
     if (!book) return;
