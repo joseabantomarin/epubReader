@@ -3,6 +3,7 @@ import { Capacitor } from '@capacitor/core';
 import styles from './PitchSection.module.css';
 
 const PAYPAL_URL = 'https://www.paypal.com/ncp/payment/VZ3CFJK4YDBML';
+const PLAYSTORE_URL = 'https://play.google.com/store/apps/details?id=app.openlinks.mislibros&pcampaignid=web_share';
 // Yape is a Peru-only wallet shown as a QR to scan from another device, which
 // makes no sense inside the Android app. Show it on web only; hide it on native.
 const IS_NATIVE = Capacitor.isNativePlatform();
@@ -20,6 +21,21 @@ export default function PitchSection() {
 
   return (
     <div className={styles.wrap}>
+      {/* Get-the-app CTA — web only; pointless inside the Android app itself. */}
+      {!IS_NATIVE && (
+        <a
+          className={styles.downloadApp}
+          href={PLAYSTORE_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <svg className={styles.downloadAppIcon} viewBox="0 0 512 512" width="22" height="22" aria-hidden="true">
+            <path fill="currentColor" d="M325.3 234.3 104.6 13l280.8 161.2-60.1 60.1zM47 0C34 6.8 25.3 19.2 25.3 35.3v441.3c0 16.1 8.7 28.5 21.7 35.3l256.6-256L47 0zm425.2 225.6-58.9-34-65.7 64.5 65.7 64.5 60.1-34.7c18-14.3 18-46.5-1.2-60.3zM104.6 499l280.8-161.2-60.1-60.1L104.6 499z"/>
+          </svg>
+          Descargar Aplicación
+        </a>
+      )}
+
       <aside className={styles.pitch}>
         <h2 className={styles.pitchTitle}>¿Te gustó esta app?</h2>
         <p className={styles.pitchBody}>
