@@ -255,29 +255,16 @@ export default function ReaderPage() {
         // Apply reader settings as CSS injected into the rendition.
         const settings = loadSettings();
 
-        // Page-turn transition mode (read once at open, like the other settings).
-        // Both modes are driven by us from the `relocate` event (below) so every
-        // navigation path — buttons, keyboard, volume, swipe and PDFs — animates
-        // uniformly. foliate's own `animated` column scroll is left off on purpose.
-        const pageTransition = settings.pageTransition || 'fade';
-        if (containerRef.current) containerRef.current.dataset.transition = pageTransition;
-        // foliate-view is a custom element → defaults to display:inline, on which
-        // CSS `transform` is IGNORED (spec: non-replaced inline elements aren't
-        // transformable). Force block + full size so the slide transform applies.
+        // Page turns are handled by foliate-js itself. The library's paginator
+        // has a built-in sliding transition you opt into with the `animated`
+        // attribute; we leave it off, so turns are instant (foliate's default).
+        // No custom animation: the old hand-rolled fade/slide flickered because
+        // it ran from the `relocate` event, which fires after foliate has already
+        // painted the new page — any opacity/transform there just disturbs
+        // content that is already on screen.
         view.style.display = 'block';
         view.style.width = '100%';
         view.style.height = '100%';
-        view.style.position = 'relative';
-        view.style.zIndex = '2';
-        view.style.willChange = 'transform, opacity';
-        // Dim scrim behind the view: during a slide the area the incoming page
-        // hasn't covered yet shows this darkened layer instead of empty
-        // background, approximating the old page dimming underneath.
-        const dim = document.createElement('div');
-        dim.style.cssText = 'position:absolute;inset:0;background:#000;opacity:0;'
-          + 'pointer-events:none;z-index:1;';
-        containerRef.current.appendChild(dim);
-        view.__dim = dim;
         const themeColors = resolveTheme(settings.theme);
         const fontFamily = FONT_FAMILIES[settings.fontFamily] || FONT_FAMILIES.system;
         const hyphenCss = settings.hyphenation
@@ -339,46 +326,6 @@ export default function ReaderPage() {
         // TOC jumps — all of them go through the relocate event.
         let savingEnabled = false;
         setTimeout(() => { savingEnabled = true; }, 500);
-        // Gate the page-turn animation so the initial render / position-restore
-        // doesn't animate. `prevFraction` lets us infer the turn direction.
-        let animReady = false;
-        setTimeout(() => { animReady = true; }, 500);
-        let prevFraction = null;
-
-        // Animate the page turn on the whole foliate-view. Driven from relocate so
-        // it covers every navigation path. slide: the new page sweeps in from the
-        // side with a drop shadow; fade: a quick dissolve.
-        const playPageTurn = (el, mode, forward) => {
-          if (mode === 'fade') {
-            // relocate fires AFTER foliate has already painted the NEW page into
-            // the view, so dropping opacity to 0 here would briefly expose the
-            // empty viewport background behind the new page, which was the flash.
-            // Instead fade in from a high opacity floor: the new content stays
-            // continuously visible (never fully transparent), so the background
-            // is never revealed. The result is a gentle settle with no flicker.
-            el.style.transition = 'none';
-            el.style.opacity = '0.6';
-            void el.offsetWidth;            // commit the start state
-            el.style.transition = 'opacity 180ms ease';
-            el.style.opacity = '1';
-            return;
-          }
-          const from = forward ? '100%' : '-100%';
-          const dim = el.__dim;
-          el.style.transition = 'none';
-          el.style.transform = `translateX(${from})`;
-          el.style.boxShadow = '0 0 60px rgba(0,0,0,.65)';
-          if (dim) { dim.style.transition = 'none'; dim.style.opacity = '0.5'; }
-          void el.offsetWidth;              // commit the start state
-          el.style.transition = 'transform 400ms cubic-bezier(.22,.61,.36,1)';
-          el.style.transform = 'translateX(0)';
-          if (dim) {
-            dim.style.transition = 'opacity 400ms ease';
-            dim.style.opacity = '0';
-          }
-          // Drop the shadow once it settles so it doesn't linger over the edges.
-          setTimeout(() => { el.style.boxShadow = 'none'; }, 450);
-        };
 
         // Fetch annotations from the server and paint them. Draw / show
         // listeners were attached before view.open.
@@ -401,17 +348,6 @@ export default function ReaderPage() {
           const fraction = typeof e.detail?.fraction === 'number' ? e.detail.fraction : null;
           const cfi = e.detail?.cfi;
           const loc = e.detail?.location;
-
-          // Play the page-turn animation (skip the initial restore and non-
-          // positional relocates like text selection). Also skip while reading
-          // aloud: the native flow rapidly walks pages to extract text (masked
-          // by the "Preparando lectura…" overlay) and then auto-turns in sync
-          // with the audio — animating those bursts is wasted work and janky.
-          if (animReady && !readingRef.current && e.detail?.reason !== 'selection') {
-            const forward = (fraction == null || prevFraction == null) ? true : fraction > prevFraction;
-            playPageTurn(view, pageTransition, forward);
-          }
-          if (fraction != null) prevFraction = fraction;
 
           // Always refresh the UI indicator — foliate-js gives accurate values
           // from the first relocate, no async generation needed.
@@ -504,7 +440,6 @@ export default function ReaderPage() {
       // for the synchronous case.
       const v = ownView || viewRef.current;
       if (v) {
-        try { v.__dim?.remove?.(); } catch {}
         try { v.close?.(); } catch {}
         try { v.remove?.(); } catch {}
       }
