@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { X } from 'lucide-react';
 import styles from './annotations.module.css';
 
 // Small dialog asking how many pages to read aloud. Replaces window.prompt,
@@ -20,7 +21,7 @@ export default function ReadAloudDialog({ open, onClose, onStart, maxPages = 100
       <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
         <header className={styles.modalHeader}>
           <p className={styles.dictWord}>Leer en voz alta</p>
-          <button className={styles.modalClose} onClick={onClose} aria-label="Cerrar">×</button>
+          <button className={styles.modalClose} onClick={onClose} aria-label="Cerrar"><X size={18} strokeWidth={2} /></button>
         </header>
         <div className={styles.modalBody}>
           <label style={{ display: 'block', marginBottom: 10 }}>

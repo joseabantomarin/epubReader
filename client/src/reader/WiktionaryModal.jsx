@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { X } from 'lucide-react';
 import styles from './annotations.module.css';
 
 // MediaWiki action API works on every Wiktionary host. We pull the page extract
@@ -74,7 +75,7 @@ export default function WiktionaryModal({ open, term, lang = 'es', onClose }) {
             <p className={styles.dictWord}>{term}</p>
             {state.pos && <p className={styles.dictPos}>{state.pos}</p>}
           </div>
-          <button className={styles.modalClose} onClick={onClose} aria-label="Cerrar">×</button>
+          <button className={styles.modalClose} onClick={onClose} aria-label="Cerrar"><X size={18} strokeWidth={2} /></button>
         </header>
         <div className={styles.modalBody}>
           {state.loading && <p>Buscando…</p>}

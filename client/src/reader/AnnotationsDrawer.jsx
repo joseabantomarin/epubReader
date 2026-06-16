@@ -1,3 +1,4 @@
+import { X } from 'lucide-react';
 import styles from './annotations.module.css';
 
 export default function AnnotationsDrawer({ open, annotations, onJump, onClose }) {
@@ -6,7 +7,7 @@ export default function AnnotationsDrawer({ open, annotations, onJump, onClose }
     <aside className={styles.drawer} role="dialog" aria-label="Subrayados">
       <header className={styles.drawerHeader}>
         <p className={styles.drawerTitle}>Subrayados ({annotations.length})</p>
-        <button className={styles.modalClose} onClick={onClose} aria-label="Cerrar">×</button>
+        <button className={styles.modalClose} onClick={onClose} aria-label="Cerrar"><X size={18} strokeWidth={2} /></button>
       </header>
       {annotations.length === 0 ? (
         <p className={styles.drawerEmpty}>Aún no tienes subrayados en este libro.</p>
