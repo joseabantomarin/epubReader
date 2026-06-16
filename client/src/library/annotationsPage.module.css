@@ -4,7 +4,7 @@
   padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
 }
 .header { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
-.back { background: transparent; border: none; font-size: 22px; cursor: pointer; color: var(--fg); }
+.back { background: transparent; border: none; cursor: pointer; color: var(--fg); display: inline-flex; align-items: center; padding: 4px; }
 .title { font-size: 20px; font-weight: 700; margin: 0; flex: 1; }
 
 .empty { color: var(--muted); text-align: center; padding: 40px 20px; }

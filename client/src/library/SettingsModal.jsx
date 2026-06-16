@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { X } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import styles from './settings.module.css';
 import { DEFAULTS, loadSettings, saveSettings } from '../lib/readerSettings.js';
@@ -39,7 +40,7 @@ export default function SettingsModal({ open, onClose }) {
       <div className={styles.modal} onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Ajustes del lector">
         <header className={styles.header}>
           <h2 className={styles.title}>Ajustes del lector</h2>
-          <button className={styles.closeBtn} onClick={onClose} aria-label="Cerrar">×</button>
+          <button className={styles.closeBtn} onClick={onClose} aria-label="Cerrar"><X size={18} strokeWidth={2} /></button>
         </header>
 
         <div className={styles.body}>

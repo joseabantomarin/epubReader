@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import styles from './library.module.css';
 import { bookCoverUrl, sharedCoverUrl, getToken } from '../lib/api.js';
 import { getCover, putCover } from '../lib/offlineCache.js';
+import { Share2, Check, Ban } from 'lucide-react';
 import { percent, relativeTime } from '../lib/format.js';
 import StarRating from './StarRating.jsx';
 
@@ -118,17 +119,19 @@ export default function BookCard({ book, selectionMode, selected, onActivate, sh
           <span className={styles.offlineDot} title="Disponible offline" aria-label="Disponible offline" />
         )}
         {book.shared ? (
-          <span className={styles.sharedBadge} title="Compartido" aria-label="Compartido">🔗</span>
+          <span className={styles.sharedBadge} title="Compartido" aria-label="Compartido">
+            <Share2 size={13} strokeWidth={2.5} aria-hidden />
+          </span>
         ) : null}
         {selectionMode && (
-          <div className={styles.checkbox} aria-hidden>{selected ? '✓' : ''}</div>
+          <div className={styles.checkbox} aria-hidden>{selected ? <Check size={16} strokeWidth={3} /> : null}</div>
         )}
       </div>
       <p className={styles.cardTitle}>{book.title}</p>
       <p className={styles.cardAuthor}>{book.author || '—'}</p>
       {book.censored && (
         <p className={styles.censoredNote} title={book.censorReason || ''}>
-          🚫 Censurado{book.censorReason ? `: ${book.censorReason}` : ''}
+          <Ban size={13} strokeWidth={2.5} aria-hidden /> Censurado{book.censorReason ? `: ${book.censorReason}` : ''}
         </p>
       )}
       <div className={styles.progressBar}>
