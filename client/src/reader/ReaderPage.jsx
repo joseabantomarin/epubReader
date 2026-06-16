@@ -298,6 +298,19 @@ export default function ReaderPage() {
         }
         if (Array.isArray(view.book?.toc)) setToc(view.book.toc);
 
+        // A `cfi` query param (e.g. from the all-annotations page) asks the
+        // reader to jump straight to that passage, overriding saved progress.
+        const targetCfi = searchParams.get('cfi');
+        if (targetCfi) {
+          try { await view.goTo(targetCfi); }
+          catch {
+            if (progress?.percentage != null) {
+              try { await view.goToFraction(progress.percentage); } catch {}
+            } else if (progress?.cfi) {
+              try { await view.goTo(progress.cfi); } catch {}
+            }
+          }
+        } else
         // Restore position. Prefer fraction over cfi: foliate-js's relocate cfi
         // points at the first visible element, which may start on the previous
         // spread when a paragraph wraps across pages — landing us one page back.

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Settings, Users } from 'lucide-react';
+import { Settings, Users, Highlighter } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
 import styles from './library.module.css';
@@ -276,6 +276,10 @@ export default function LibraryPage() {
                 <Users size={20} strokeWidth={2} />
               </button>
             )}
+            <button className={styles.iconBtn} onClick={() => navigate('/subrayados')}
+              aria-label="Mis subrayados" title="Mis subrayados">
+              <Highlighter size={20} strokeWidth={2} />
+            </button>
             <AvatarMenu user={user} onLogout={logout} styles={styles} />
           </div>
         )}
