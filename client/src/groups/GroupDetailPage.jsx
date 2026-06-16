@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
 import { api } from '../lib/api.js';
 import SharedShelf from '../library/SharedShelf.jsx';
 import styles from './groups.module.css';
@@ -42,7 +43,7 @@ export default function GroupDetailPage() {
   return (
     <div className={styles.page}>
       <header className={styles.header}>
-        <button className={styles.back} onClick={() => navigate('/grupos')} aria-label="Volver">←</button>
+        <button className={styles.back} onClick={() => navigate('/grupos')} aria-label="Volver"><ArrowLeft size={22} strokeWidth={2} /></button>
         <h1 className={styles.title}>{group.name}</h1>
         {isOwner
           ? <div className={styles.headerActions}>

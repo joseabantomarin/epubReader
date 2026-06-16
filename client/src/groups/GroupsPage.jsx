@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
 import { api } from '../lib/api.js';
 import styles from './groups.module.css';
 
@@ -23,7 +24,7 @@ export default function GroupsPage() {
   return (
     <div className={styles.page}>
       <header className={styles.header}>
-        <button className={styles.back} onClick={() => navigate('/')} aria-label="Volver">←</button>
+        <button className={styles.back} onClick={() => navigate('/')} aria-label="Volver"><ArrowLeft size={22} strokeWidth={2} /></button>
         <h1 className={styles.title}>Mis grupos</h1>
       </header>
 
