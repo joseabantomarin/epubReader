@@ -1,6 +1,6 @@
 .page { max-width: 760px; margin: 0 auto; padding: 16px; padding-top: calc(16px + env(safe-area-inset-top)); }
 .header { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
-.back { background: transparent; border: none; font-size: 22px; cursor: pointer; color: var(--fg); }
+.back { background: transparent; border: none; cursor: pointer; color: var(--fg); display: inline-flex; align-items: center; padding: 4px; }
 .title { font-size: 20px; font-weight: 700; margin: 0; flex: 1; }
 .headerActions { display: flex; gap: 8px; }
 .createRow { display: flex; gap: 8px; margin-bottom: 14px; }
