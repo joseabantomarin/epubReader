@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Star } from 'lucide-react';
 import styles from './library.module.css';
 
 // avg: número|null, count: entero, myStars: 1..5|null
@@ -12,7 +13,11 @@ export default function StarRating({ avg, count, myStars, interactive, onRate, o
   const stars = [1, 2, 3, 4, 5].map((n) => {
     const on = n <= filledTo;
     if (!interactive) {
-      return <span key={n} className={on ? styles.starOn : styles.starOff}>★</span>;
+      return (
+        <span key={n} className={on ? styles.starOn : styles.starOff}>
+          <Star size={15} strokeWidth={2} fill={on ? 'currentColor' : 'none'} aria-hidden />
+        </span>
+      );
     }
     return (
       <button
@@ -27,7 +32,9 @@ export default function StarRating({ avg, count, myStars, interactive, onRate, o
           else onRate?.(n);
         }}
         aria-label={`${n} estrella${n > 1 ? 's' : ''}`}
-      >★</button>
+      >
+        <Star size={18} strokeWidth={2} fill={on ? 'currentColor' : 'none'} aria-hidden />
+      </button>
     );
   });
 

@@ -61,9 +61,17 @@
 @media (min-width: 640px) {
   .toolbar { grid-template-columns: 1fr auto auto; }
 }
+.searchWrap { position: relative; width: 100%; }
+.searchIcon {
+  position: absolute;
+  left: 11px; top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+  pointer-events: none;
+}
 .search {
   width: 100%;
-  padding: 10px 12px;
+  padding: 10px 12px 10px 36px;
   border-radius: 10px;
   border: 1px solid var(--border);
   background: var(--card);
@@ -71,6 +79,9 @@
 }
 .toolbarButtons { display: flex; gap: 8px; flex-wrap: wrap; }
 .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   background: var(--card); color: inherit;
   border: 1px solid var(--border);
   padding: 10px 14px;
@@ -243,8 +254,9 @@
   background: rgba(16, 32, 96, 0.85);
   color: #fff;
   border-radius: 6px;
-  padding: 1px 5px;
-  font-size: 0.8rem;
+  padding: 3px;
+  display: inline-grid;
+  place-items: center;
 }
 
 .sharedItem { display: flex; flex-direction: column; }
@@ -266,6 +278,7 @@
   font-size: 11px;
   font-weight: 600;
   color: #c0382d;
+  display: flex; align-items: center; gap: 4px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 

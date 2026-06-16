@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { X } from 'lucide-react';
 import styles from './settings.module.css';
 import { api } from '../lib/api.js';
 
@@ -54,7 +55,7 @@ export default function ShareDialog({ open, ids = [], count, onClose, onShared }
       <div className={styles.modal} onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Compartir">
         <header className={styles.header}>
           <h2 className={styles.title}>Compartir {count > 1 ? `(${count})` : ''}</h2>
-          <button className={styles.closeBtn} onClick={onClose} aria-label="Cerrar">×</button>
+          <button className={styles.closeBtn} onClick={onClose} aria-label="Cerrar"><X size={18} strokeWidth={2} /></button>
         </header>
         <div className={styles.body}>
           <div className={styles.chips}>
