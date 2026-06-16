@@ -102,6 +102,20 @@ export default function ReaderPage() {
 
   useEffect(() => {
     let disposed = false;
+    // The foliate-view created by THIS effect invocation. Tracked locally (not
+    // just via viewRef) so cleanup tears down exactly the view this run made.
+    // Under React.StrictMode the effect mounts -> cleanup -> mounts again; the
+    // first run is async, so its cleanup can fire before viewRef is even set.
+    // Keying teardown off this local var (plus the disposed check after append)
+    // guarantees the first run's view is removed and the document isn't opened
+    // twice, so it never visibly reloads in dev.
+    let ownView = null;
+    // Teardown callbacks collected as each listener is registered. Run directly
+    // from the effect cleanup so removal never depends on how far `start()` got:
+    // unmounting mid-open (e.g. while goToFraction / annotation fetch is still
+    // awaiting) would otherwise leak the window/document listeners, since a
+    // single end-of-start cleanup handle wouldn't be assigned yet.
+    const cleanups = [];
 
     async function start() {
       try {
@@ -139,8 +153,12 @@ export default function ReaderPage() {
         if (progress?.cfi) lastSavedCfiRef.current = progress.cfi;
 
         const view = document.createElement('foliate-view');
+        // If this run was already disposed (StrictMode's first mount) bail before
+        // touching the DOM so we don't append a stray, never-cleaned-up view.
+        if (disposed) return;
         containerRef.current.appendChild(view);
         viewRef.current = view;
+        ownView = view;
 
         // Attach annotation / selection listeners BEFORE view.open(file) so the
         // first chapter's `load` event (fired during open) isn't missed —
@@ -233,33 +251,21 @@ export default function ReaderPage() {
         };
         applyColumnCount();
         window.addEventListener('resize', applyColumnCount);
+        cleanups.push(() => window.removeEventListener('resize', applyColumnCount));
 
         // Apply reader settings as CSS injected into the rendition.
         const settings = loadSettings();
 
-        // Page-turn transition mode (read once at open, like the other settings).
-        // Both modes are driven by us from the `relocate` event (below) so every
-        // navigation path — buttons, keyboard, volume, swipe and PDFs — animates
-        // uniformly. foliate's own `animated` column scroll is left off on purpose.
-        const pageTransition = settings.pageTransition || 'fade';
-        if (containerRef.current) containerRef.current.dataset.transition = pageTransition;
-        // foliate-view is a custom element → defaults to display:inline, on which
-        // CSS `transform` is IGNORED (spec: non-replaced inline elements aren't
-        // transformable). Force block + full size so the slide transform applies.
+        // Page turns are handled by foliate-js itself. The library's paginator
+        // has a built-in sliding transition you opt into with the `animated`
+        // attribute; we leave it off, so turns are instant (foliate's default).
+        // No custom animation: the old hand-rolled fade/slide flickered because
+        // it ran from the `relocate` event, which fires after foliate has already
+        // painted the new page — any opacity/transform there just disturbs
+        // content that is already on screen.
         view.style.display = 'block';
         view.style.width = '100%';
         view.style.height = '100%';
-        view.style.position = 'relative';
-        view.style.zIndex = '2';
-        view.style.willChange = 'transform, opacity';
-        // Dim scrim behind the view: during a slide the area the incoming page
-        // hasn't covered yet shows this darkened layer instead of empty
-        // background, approximating the old page dimming underneath.
-        const dim = document.createElement('div');
-        dim.style.cssText = 'position:absolute;inset:0;background:#000;opacity:0;'
-          + 'pointer-events:none;z-index:1;';
-        containerRef.current.appendChild(dim);
-        view.__dim = dim;
         const themeColors = resolveTheme(settings.theme);
         const fontFamily = FONT_FAMILIES[settings.fontFamily] || FONT_FAMILIES.system;
         const hyphenCss = settings.hyphenation
@@ -334,40 +340,6 @@ export default function ReaderPage() {
         // TOC jumps — all of them go through the relocate event.
         let savingEnabled = false;
         setTimeout(() => { savingEnabled = true; }, 500);
-        // Gate the page-turn animation so the initial render / position-restore
-        // doesn't animate. `prevFraction` lets us infer the turn direction.
-        let animReady = false;
-        setTimeout(() => { animReady = true; }, 500);
-        let prevFraction = null;
-
-        // Animate the page turn on the whole foliate-view. Driven from relocate so
-        // it covers every navigation path. slide: the new page sweeps in from the
-        // side with a drop shadow; fade: a quick dissolve.
-        const playPageTurn = (el, mode, forward) => {
-          if (mode === 'fade') {
-            el.style.transition = 'none';
-            el.style.opacity = '0';
-            void el.offsetWidth;            // commit the start state
-            el.style.transition = 'opacity 280ms ease';
-            el.style.opacity = '1';
-            return;
-          }
-          const from = forward ? '100%' : '-100%';
-          const dim = el.__dim;
-          el.style.transition = 'none';
-          el.style.transform = `translateX(${from})`;
-          el.style.boxShadow = '0 0 60px rgba(0,0,0,.65)';
-          if (dim) { dim.style.transition = 'none'; dim.style.opacity = '0.5'; }
-          void el.offsetWidth;              // commit the start state
-          el.style.transition = 'transform 400ms cubic-bezier(.22,.61,.36,1)';
-          el.style.transform = 'translateX(0)';
-          if (dim) {
-            dim.style.transition = 'opacity 400ms ease';
-            dim.style.opacity = '0';
-          }
-          // Drop the shadow once it settles so it doesn't linger over the edges.
-          setTimeout(() => { el.style.boxShadow = 'none'; }, 450);
-        };
 
         // Fetch annotations from the server and paint them. Draw / show
         // listeners were attached before view.open.
@@ -390,17 +362,6 @@ export default function ReaderPage() {
           const fraction = typeof e.detail?.fraction === 'number' ? e.detail.fraction : null;
           const cfi = e.detail?.cfi;
           const loc = e.detail?.location;
-
-          // Play the page-turn animation (skip the initial restore and non-
-          // positional relocates like text selection). Also skip while reading
-          // aloud: the native flow rapidly walks pages to extract text (masked
-          // by the "Preparando lectura…" overlay) and then auto-turns in sync
-          // with the audio — animating those bursts is wasted work and janky.
-          if (animReady && !readingRef.current && e.detail?.reason !== 'selection') {
-            const forward = (fraction == null || prevFraction == null) ? true : fraction > prevFraction;
-            playPageTurn(view, pageTransition, forward);
-          }
-          if (fraction != null) prevFraction = fraction;
 
           // Always refresh the UI indicator — foliate-js gives accurate values
           // from the first relocate, no async generation needed.
@@ -445,11 +406,13 @@ export default function ReaderPage() {
         const onVisibility = () => { if (document.visibilityState === 'hidden') flush(); };
         document.addEventListener('visibilitychange', onVisibility);
         window.addEventListener('pagehide', flush);
-        view.__flush = flush;
-        view.__detachFlush = () => {
+        // Flush first (save the latest position), then detach. Pushed eagerly so
+        // an unmount mid-open still tears these down.
+        cleanups.push(() => {
+          try { flush(); } catch {}
           document.removeEventListener('visibilitychange', onVisibility);
           window.removeEventListener('pagehide', flush);
-        };
+        });
 
         // Keyboard navigation on the parent document.
         const onKey = (e) => {
@@ -461,6 +424,7 @@ export default function ReaderPage() {
           }
         };
         document.addEventListener('keydown', onKey);
+        cleanups.push(() => document.removeEventListener('keydown', onKey));
 
         // Hardware volume buttons on Android (Capacitor): MainActivity hijacks
         // KEYCODE_VOLUME_UP/DOWN and dispatches a 'hardwareVolume' CustomEvent.
@@ -471,12 +435,7 @@ export default function ReaderPage() {
           else if (which === 'volumeDown') leftSideAdvances ? view.prev() : view.next();
         };
         window.addEventListener('hardwareVolume', onVolume);
-
-        view.__cleanup = () => {
-          document.removeEventListener('keydown', onKey);
-          window.removeEventListener('hardwareVolume', onVolume);
-          window.removeEventListener('resize', applyColumnCount);
-        };
+        cleanups.push(() => window.removeEventListener('hardwareVolume', onVolume));
       } catch (e) {
         console.error('[reader] error', e);
         setError(e.message);
@@ -487,16 +446,20 @@ export default function ReaderPage() {
     start();
     return () => {
       disposed = true;
-      const v = viewRef.current;
+      // Run every teardown collected during start(), regardless of how far it
+      // got: this removes the window/document listeners even when we unmount
+      // mid-open (no dependence on a handle assigned only at the end).
+      for (const fn of cleanups) { try { fn(); } catch {} }
+      // Tear down the view THIS run created (ownView), falling back to viewRef
+      // for the synchronous case.
+      const v = ownView || viewRef.current;
       if (v) {
-        try { v.__flush?.(); } catch {}
-        try { v.__detachFlush?.(); } catch {}
-        try { v.__cleanup?.(); } catch {}
-        try { v.__dim?.remove?.(); } catch {}
         try { v.close?.(); } catch {}
         try { v.remove?.(); } catch {}
       }
-      viewRef.current = null;
+      // Only null viewRef if it still points at our view, so a later mount's
+      // view (set by the next StrictMode run) isn't clobbered by this cleanup.
+      if (viewRef.current === v) viewRef.current = null;
     };
   }, [bookId, isShared]);
 
