@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
+import { Heart, ExternalLink, ArrowRight, X } from 'lucide-react';
 import styles from './PitchSection.module.css';
 
 const PAYPAL_URL = 'https://www.paypal.com/ncp/payment/VZ3CFJK4YDBML';
@@ -47,19 +48,19 @@ export default function PitchSection() {
           className={styles.pitchCta}
           href="mailto:joseabantomarin@gmail.com?subject=Cotización%20de%20proyecto"
         >
-          Cotizar mi proyecto →
+          Cotizar mi proyecto <ArrowRight size={16} strokeWidth={2} aria-hidden />
         </a>
         <p className={styles.pitchSign}>José Abanto · Desarrollador full-stack</p>
       </aside>
 
       <a className={styles.siteLink} href="https://openlinks.app" target="_blank" rel="noopener noreferrer">
-        Conoce más en openlinks.app <span aria-hidden>↗</span>
+        Conoce más en openlinks.app <ExternalLink size={15} strokeWidth={2} aria-hidden />
       </a>
 
       {!IS_NATIVE && (
         <>
           <button type="button" className={styles.supportLink} onClick={() => setSupportOpen(true)}>
-            <span aria-hidden>💚</span> Apóyanos voluntariamente <span aria-hidden>🙏</span>
+            <Heart size={16} strokeWidth={2} aria-hidden /> Apóyanos voluntariamente
           </button>
 
           {supportOpen && (
@@ -73,11 +74,11 @@ export default function PitchSection() {
               >
                 <header className={styles.modalHeader}>
                   <h2 id="support-title" className={styles.modalTitle}>Apóyanos voluntariamente</h2>
-                  <button className={styles.modalClose} onClick={() => setSupportOpen(false)} aria-label="Cerrar">×</button>
+                  <button className={styles.modalClose} onClick={() => setSupportOpen(false)} aria-label="Cerrar"><X size={18} strokeWidth={2} /></button>
                 </header>
 
                 <p className={styles.modalIntro}>
-                  Tu apoyo es totalmente voluntario y ayuda a mantener la app. ¡Gracias! 🙏
+                  Tu apoyo es totalmente voluntario y ayuda a mantener la app. ¡Gracias!
                 </p>
 
                 <div className={styles.qrBlock}>
