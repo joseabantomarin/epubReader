@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
 import { Share } from '@capacitor/share';
-import { ArrowLeft, Volume2, Square, Menu, Star, Settings, ChevronLeft, Maximize2 } from 'lucide-react';
+import { ArrowLeft, Volume2, Square, Menu, Star, Settings, ChevronLeft, Maximize2, X } from 'lucide-react';
 import styles from './reader.module.css';
 import { api, bookFileUrl, sharedFileUrl, getToken } from '../lib/api.js';
 import { getBookFile, putBookFile } from '../lib/offlineCache.js';
@@ -764,7 +764,7 @@ export default function ReaderPage() {
       {showOffHint && (
         <div className={styles.offHint} role="status">
           <span>Lectura detenida. Si desea escuchar con el dispositivo Android apagado, descargue la aplicación.</span>
-          <button className={styles.offHintClose} onClick={() => setShowOffHint(false)} aria-label="Cerrar">×</button>
+          <button className={styles.offHintClose} onClick={() => setShowOffHint(false)} aria-label="Cerrar"><X size={18} strokeWidth={2} /></button>
         </div>
       )}
       <footer className={styles.footer}>
@@ -780,7 +780,7 @@ export default function ReaderPage() {
           <aside className={styles.tocPanel} aria-label="Índice">
             <div className={styles.tocHeader}>
               <h2 className={styles.tocTitle}>Capítulos</h2>
-              <button className={styles.back} onClick={() => setTocOpen(false)} aria-label="Cerrar">✕</button>
+              <button className={styles.back} onClick={() => setTocOpen(false)} aria-label="Cerrar"><X size={18} strokeWidth={2} /></button>
             </div>
             <nav className={styles.tocList}>
               <TocList items={toc} onPick={goToChapter} />

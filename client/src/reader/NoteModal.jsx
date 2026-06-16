@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { X } from 'lucide-react';
 import styles from './annotations.module.css';
 
 export default function NoteModal({ open, snippet, initialNote = '', onSave, onClose, onDelete, onJump }) {
@@ -10,7 +11,7 @@ export default function NoteModal({ open, snippet, initialNote = '', onSave, onC
       <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
         <header className={styles.modalHeader}>
           <p className={styles.modalTitle}>Nota</p>
-          <button className={styles.modalClose} onClick={onClose} aria-label="Cerrar">×</button>
+          <button className={styles.modalClose} onClick={onClose} aria-label="Cerrar"><X size={18} strokeWidth={2} /></button>
         </header>
         <div className={styles.modalBody}>
           {snippet && <blockquote className={styles.drawerSnippet}>{snippet}</blockquote>}
