@@ -96,6 +96,7 @@ export const api = {
       body: totalPages != null ? { cfi, percentage, totalPages } : { cfi, percentage },
     }),
   listAnnotations: (bookId) => call(`/api/books/${bookId}/annotations`),
+  listAllAnnotations: () => call('/api/books/annotations/all'),
   createAnnotation: (bookId, { cfi, text, note, color, chapter, page }) =>
     call(`/api/books/${bookId}/annotations`, {
       method: 'POST',
