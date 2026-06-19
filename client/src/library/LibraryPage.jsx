@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
 import styles from './library.module.css';
 import { api } from '../lib/api.js';
-import { isPdfFile, extractPdfMeta } from '../lib/pdfMeta.js';
+import { importBookFile } from '../lib/importBook.js';
 import { useFullscreen } from '../lib/useFullscreen.js';
 import FullscreenButton from '../lib/FullscreenButton.jsx';
 import PitchSection from '../lib/PitchSection.jsx';
@@ -157,16 +157,7 @@ export default function LibraryPage() {
   const handleAddFile = async (file) => {
     setUploading(true);
     try {
-      let extras = {};
-      if (await isPdfFile(file)) {
-        try {
-          const meta = await extractPdfMeta(file);
-          extras = { title: meta.title, author: meta.author, cover: meta.cover };
-        } catch (err) {
-          console.warn('[pdf] metadata extraction failed', err);
-        }
-      }
-      const created = await api.uploadBook(file, extras);
+      const created = await importBookFile(file);
       setBooks((prev) => [created, ...prev]);
     } catch (e) {
       alert('No se pudo subir el libro: ' + (e.body?.error || e.message));
