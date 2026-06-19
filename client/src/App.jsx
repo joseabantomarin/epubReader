@@ -10,6 +10,7 @@ import AnnotationsPage from './library/AnnotationsPage.jsx';
 import DeleteAccountPage from './auth/DeleteAccountPage.jsx';
 import { useNativeBack } from './lib/useNativeBack.js';
 import { useSyncQueue } from './lib/useSyncQueue.js';
+import { useOpenedBook } from './lib/useOpenedBook.js';
 
 const READER_PATH_KEY = 'epubreader.readerPath';
 const RESTORE_AT_KEY = 'epubreader.restoreAt';
@@ -17,6 +18,7 @@ const RESTORE_AT_KEY = 'epubreader.restoreAt';
 function Routed() {
   useNativeBack();
   useSyncQueue();
+  useOpenedBook();
   const navigate = useNavigate();
 
   // Android reloads the WebView to '/' when it reclaims the app after the
