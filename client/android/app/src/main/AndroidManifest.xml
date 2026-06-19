@@ -18,6 +18,41 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!-- "Open with" handler: PDF. MIME is reliable for PDFs, so match by
+                 type on both the content:// (modern pickers, Drive, Downloads)
+                 and file:// (older file managers) schemes. -->
+            <intent-filter android:label="@string/app_name">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" android:mimeType="application/pdf" />
+                <data android:scheme="file" android:mimeType="application/pdf" />
+            </intent-filter>
+
+            <!-- "Open with" handler: EPUB by its correct MIME type. -->
+            <intent-filter android:label="@string/app_name">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" android:mimeType="application/epub+zip" />
+                <data android:scheme="file" android:mimeType="application/epub+zip" />
+            </intent-filter>
+
+            <!-- "Open with" handler: EPUB by extension, for file managers that
+                 deliver a file:// URI with a missing/generic MIME type. The
+                 escalating patterns work around Android's pathPattern bug with
+                 dots earlier in the name (e.g. "my.book.epub"). -->
+            <intent-filter android:label="@string/app_name">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="file" />
+                <data android:host="*" />
+                <data android:pathPattern=".*\\.epub" />
+                <data android:pathPattern=".*\\..*\\.epub" />
+                <data android:pathPattern=".*\\..*\\..*\\.epub" />
+            </intent-filter>
         </activity>
 
         <provider
