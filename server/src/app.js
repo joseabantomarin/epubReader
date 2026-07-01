@@ -17,6 +17,7 @@ import { createAIRouter } from './routes/ai.js';
 import { createGroupsRouter } from './routes/groups.js';
 import { createDevicesRouter } from './routes/devices.js';
 import { createKoboRouter } from './routes/kobo.js';
+import { createVisitTracker } from './middleware/visitTracker.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -59,6 +60,10 @@ export function createApp(options = {}) {
   app.use(express.json({ limit: '1mb' }));
   app.locals.db = db;
   app.locals.dataDir = dataDir;
+
+  // Log HTML page loads (not assets/API) for visitor tracking. Runs before
+  // routing; self-contained and never throws.
+  app.use(createVisitTracker(db));
 
   app.get('/api/health', (_req, res) => res.json({ ok: true }));
 
