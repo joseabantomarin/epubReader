@@ -91,6 +91,19 @@ CREATE TABLE IF NOT EXISTS kobo_devices (
 );
 CREATE INDEX IF NOT EXISTS idx_kobo_devices_user ON kobo_devices(user_id);
 CREATE INDEX IF NOT EXISTS idx_kobo_devices_token ON kobo_devices(token);
+
+CREATE TABLE IF NOT EXISTS visits (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+  ip          TEXT,
+  country     TEXT,
+  region      TEXT,
+  city        TEXT,
+  os          TEXT,
+  path        TEXT,
+  user_agent  TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_visits_created_at ON visits(created_at);
 `;
 
 function hasColumn(db, table, column) {
