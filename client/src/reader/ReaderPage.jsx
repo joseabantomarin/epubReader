@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
 import { Share } from '@capacitor/share';
 import { ArrowLeft, Volume2, Square, Menu, Star, Settings, ChevronLeft, Maximize2, X } from 'lucide-react';
@@ -10,6 +10,7 @@ import { getProgressLocal, saveProgressLocal, markSynced } from '../lib/offlineP
 import { percent } from '../lib/format.js';
 import { loadSettings, FONT_FAMILIES, resolveTheme } from '../lib/readerSettings.js';
 import { useFullscreen } from '../lib/useFullscreen.js';
+import { registerBackHandler } from '../lib/backActions.js';
 import FullscreenButton from '../lib/FullscreenButton.jsx';
 import SelectionMenu from './SelectionMenu.jsx';
 import WiktionaryModal from './WiktionaryModal.jsx';
@@ -59,10 +60,17 @@ export default function ReaderPage() {
   const [searchParams] = useSearchParams();
   const isShared = searchParams.get('shared') === '1' || !getToken();
   const navigate = useNavigate();
+  const location = useLocation();
   const containerRef = useRef(null);
   const viewRef = useRef(null);
   const lastSavedCfiRef = useRef(null);
   const latestPosRef = useRef(null);
+  // Saltos de posición pendientes (enlace / índice / anotación). La profundidad
+  // vive en el state del router; estas refs la espejan para los listeners.
+  const jumpDepthRef = useRef(0);
+  const historyNavRef = useRef(false); // true mientras nosotros llamamos back()/forward()
+  const [jumpDepth, setJumpDepth] = useState(0);
+  const [chipDismissed, setChipDismissed] = useState(false);
   const [pct, setPct] = useState(0);
   const [page, setPage] = useState(null);
   const [pageCount, setPageCount] = useState(null);
@@ -341,6 +349,29 @@ export default function ReaderPage() {
         let savingEnabled = false;
         setTimeout(() => { savingEnabled = true; }, 500);
 
+        // Espeja los saltos del historial interno de foliate en el historial
+        // del navegador: cada push (enlace, índice, anotación) añade una
+        // entrada de la misma ruta con la profundidad en state. Todos los
+        // "atrás" convergen en navigate(-1); el efecto sobre location deshace
+        // el salto en foliate. Se conecta aquí, tras restaurar la posición
+        // inicial, para no contar los push de la propia restauración.
+        const onIndexChange = () => {
+          if (!view.history.canGoBack) {
+            jumpDepthRef.current = 0;
+            setJumpDepth(0);
+            return;
+          }
+          if (historyNavRef.current) return; // back()/forward() propio: ya sincronizado
+          if (readingRef.current) return;    // goTo interno de la lectura en voz alta
+          const depth = jumpDepthRef.current + 1;
+          jumpDepthRef.current = depth;
+          setJumpDepth(depth);
+          setChipDismissed(false);
+          navigate(window.location.pathname + window.location.search, { state: { jumpDepth: depth } });
+        };
+        view.history.addEventListener('index-change', onIndexChange);
+        cleanups.push(() => view.history.removeEventListener('index-change', onIndexChange));
+
         // Fetch annotations from the server and paint them. Draw / show
         // listeners were attached before view.open.
         const rawLang = view.book?.metadata?.language;
@@ -472,6 +503,47 @@ export default function ReaderPage() {
       window.removeEventListener('offline', update);
     };
   }, []);
+
+  // Al entrar (o cambiar de libro) la pila de saltos empieza vacía; si la URL
+  // trae state de una sesión previa (recarga, retorno desde la biblioteca), se
+  // limpia para que el chip no aparezca sin salto real.
+  useEffect(() => {
+    jumpDepthRef.current = 0;
+    setJumpDepth(0);
+    setChipDismissed(false);
+    if ((location.state?.jumpDepth ?? 0) !== 0) {
+      navigate(window.location.pathname + window.location.search, { replace: true, state: { jumpDepth: 0 } });
+    }
+  }, [bookId]);
+
+  // Cambio de entrada del router en la misma ruta (atrás/adelante del
+  // navegador, navigate(-1) desde chip/flecha/gesto): la profundidad del state
+  // manda y se aplica sobre el historial de foliate. El flag evita que
+  // index-change vuelva a empujar entradas mientras deshacemos.
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    const stateDepth = location.state?.jumpDepth ?? 0;
+    const current = jumpDepthRef.current;
+    if (stateDepth === current) return;
+    jumpDepthRef.current = stateDepth;
+    setJumpDepth(stateDepth);
+    historyNavRef.current = true;
+    try {
+      if (stateDepth < current) { for (let i = stateDepth; i < current; i++) view.history.back(); }
+      else { for (let i = current; i < stateDepth; i++) view.history.forward(); }
+    } finally { historyNavRef.current = false; }
+  }, [location]);
+
+  // Botón/gesto atrás de Android: con salto pendiente lo deshace y consume el
+  // evento; si no, useNativeBack aplica su default (salir a la biblioteca).
+  useEffect(() => {
+    if (!isNative) return;
+    return registerBackHandler(() => {
+      if (jumpDepthRef.current > 0) { navigate(-1); return true; }
+      return false;
+    });
+  }, [isNative, navigate]);
 
   // Always anchor the menu below the selection. On mobile web the browser's
   // own selection toolbar lives above the text, so putting ours above too

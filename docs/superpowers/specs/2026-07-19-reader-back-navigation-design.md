@@ -76,6 +76,7 @@ Antes del comportamiento por defecto, consulta `tryBackHandlers()`. Si un handle
 - **Fallo de `view.history.back()`:** `back()` es no-op si `canGoBack` es falso; además, en cada `index-change` se fuerza profundidad 0 cuando `canGoBack` es falso, lo que corrige la desincronización que importa (si queda o no salto pendiente).
 - **Libros compartidos:** mismo comportamiento (el historial de saltos no depende de la sesión).
 - **PDFs:** si no generan saltos, el chip nunca aparece y nada cambia.
+- **Lectura en voz alta (nativo):** al preparar la lectura, `useReadAloud` hace un `goTo` interno para volver a la página inicial; ese push se ignora en `index-change` mientras `readingRef` está activo, así que no genera salto pendiente ni chip.
 - **StrictMode (montaje doble en desarrollo):** listeners dentro del efecto principal con su limpieza en `cleanups`; el handler nativo se desregistra en la limpieza de su propio efecto.
 
 ## Pruebas
