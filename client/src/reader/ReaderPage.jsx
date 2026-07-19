@@ -762,7 +762,10 @@ export default function ReaderPage() {
   return (
     <main className={styles.page}>
       <header className={styles.header}>
-        <button className={styles.back} onClick={goBack} aria-label="Volver">
+        <button className={styles.back}
+          onClick={jumpDepth > 0 ? () => navigate(-1) : goBack}
+          aria-label={jumpDepth > 0 ? 'Volver a la lectura' : 'Volver'}
+          title={jumpDepth > 0 ? 'Volver a la lectura' : 'Volver'}>
           <ArrowLeft size={18} strokeWidth={2.75} />
         </button>
         <div className={styles.titleBox}>
@@ -831,6 +834,17 @@ export default function ReaderPage() {
               aria-label={leftSideAdvances ? 'Anterior' : 'Siguiente'}
               onClick={onRightSide}>›</button>
           </>
+        )}
+        {jumpDepth > 0 && !chipDismissed && (
+          <div className={styles.jumpBack} role="status">
+            <button className={styles.jumpBackBtn} onClick={() => navigate(-1)}>
+              <ArrowLeft size={14} strokeWidth={2.5} />
+              Volver a la lectura
+            </button>
+            <button className={styles.jumpBackClose} onClick={() => setChipDismissed(true)} aria-label="Descartar">
+              <X size={14} strokeWidth={2} />
+            </button>
+          </div>
         )}
       </div>
       {showOffHint && (

@@ -215,3 +215,40 @@
 }
 .tocItem:hover:not(:disabled) { background: var(--bg); }
 .tocItem:disabled { color: var(--muted); cursor: default; }
+
+/* Chip flotante para deshacer un salto de posición (enlace / índice / anotación). */
+.jumpBack {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: #102060;
+  color: #fff;
+  border-radius: 999px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, .25);
+  z-index: 30;
+}
+.jumpBackBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: none;
+  color: inherit;
+  font-size: 13px;
+  line-height: 1;
+  padding: 9px 4px 9px 14px;
+  cursor: pointer;
+}
+.jumpBackClose {
+  display: inline-flex;
+  align-items: center;
+  background: transparent;
+  border: none;
+  color: inherit;
+  padding: 9px 12px 9px 4px;
+  cursor: pointer;
+}
