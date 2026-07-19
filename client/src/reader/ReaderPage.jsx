@@ -886,7 +886,13 @@ export default function ReaderPage() {
           onShare={onShare}
           onDelete={onDelete}
           showAI={online}
-          onExplainAI={() => { if (selection?.text) setAiText(selection.text); }}
+          onExplainAI={() => {
+            if (!selection?.text) return;
+            setAiText(selection.text);
+            // Limpia la selección al abrir: los gatillos nativos se dibujan
+            // por encima de cualquier modal mientras la selección siga viva.
+            clearSelection();
+          }}
         />
       )}
       <WiktionaryModal
