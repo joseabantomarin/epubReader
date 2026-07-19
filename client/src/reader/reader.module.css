@@ -216,7 +216,10 @@
 .tocItem:hover:not(:disabled) { background: var(--bg); }
 .tocItem:disabled { color: var(--muted); cursor: default; }
 
-/* Chip flotante para deshacer un salto de posición (enlace / índice / anotación). */
+/* Chip flotante para deshacer un salto de posición (enlace / índice / anotación).
+   El selector .viewport > .jumpBack anula el height: 100% que `.viewport > div`
+   impone a los overlays de carga: el chip debe medir solo su contenido. */
+.viewport > .jumpBack { height: auto; }
 .jumpBack {
   position: absolute;
   left: 50%;
