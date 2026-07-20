@@ -76,7 +76,7 @@ function selDbg(msg) {
     }
     const line = Math.round(performance.now()) + ' ' + msg;
     const prev = el.textContent.split('\n').slice(1, 22).join('\n');
-    el.textContent = 'SEL-DBG build 3 (web) — mantén presionado y selecciona\n' + line + '\n' + prev;
+    el.textContent = 'SEL-DBG build 4 (web) — mantén presionado y selecciona\n' + line + '\n' + prev;
   } catch { /* ignore */ }
 }
 
@@ -277,6 +277,30 @@ export default function ReaderPage() {
           doc.addEventListener('pointerup', () => snap('pointerup'), { passive: true });
           doc.addEventListener('touchend', onPointerUp);
           doc.addEventListener('mouseup', onPointerUp);
+          if (seldbgOn()) {
+            doc.addEventListener('pointerdown', () => snap('pointerdown'), { passive: true });
+            doc.addEventListener('pointercancel', () => snap('pointercancel'), { passive: true });
+            doc.addEventListener('touchcancel', () => snap('touchcancel'), { passive: true });
+            doc.addEventListener('selectstart', () => snap('selectstart'), { passive: true });
+            doc.addEventListener('contextmenu', () => snap('contextmenu'));
+            let lastMove = 0;
+            doc.addEventListener('touchmove', () => {
+              const now = performance.now();
+              if (now - lastMove > 500) { lastMove = now; snap('touchmove'); }
+            }, { passive: true });
+            // Sondeo del estado real de la selección: detecta selecciones que
+            // existen aunque sus eventos nunca lleguen a este documento.
+            let lastPoll = '';
+            const pollId = setInterval(() => {
+              const sel = doc.getSelection();
+              const text = sel ? sel.toString().trim() : '';
+              let rect = null;
+              try { if (sel && sel.rangeCount) rect = rangeToViewportRect(sel.getRangeAt(0)); } catch { /* ignore */ }
+              const state = `col=${sel ? sel.isCollapsed : '-'} len=${text.length} rect=${rect ? Math.round(rect.w) + 'x' + Math.round(rect.h) : 'null'}`;
+              if (state !== lastPoll) { lastPoll = state; selDbg('poll: ' + state); }
+            }, 500);
+            cleanups.push(() => clearInterval(pollId));
+          }
 
           // PDF page-turn by drag: foliate's fixed-layout renderer doesn't do
           // this itself, so we detect a quick horizontal swipe on the page doc.
@@ -532,6 +556,13 @@ export default function ReaderPage() {
           };
           document.addEventListener('selectionchange', topSel);
           cleanups.push(() => document.removeEventListener('selectionchange', topSel));
+          // ¿Los toques aterrizan en la página padre en vez del iframe del
+          // capítulo? (los eventos del iframe no burbujean hasta aquí)
+          for (const ev of ['touchstart', 'touchend', 'touchcancel', 'pointerdown', 'pointerup', 'pointercancel']) {
+            const h = () => selDbg('TOP:' + ev);
+            window.addEventListener(ev, h, { capture: true, passive: true });
+            cleanups.push(() => window.removeEventListener(ev, h, { capture: true }));
+          }
         }
       } catch (e) {
         console.error('[reader] error', e);
