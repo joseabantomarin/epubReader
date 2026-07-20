@@ -207,3 +207,15 @@
   transition: filter .15s;
 }
 .paypalBtn:hover { filter: brightness(1.08); }
+
+/* Enlace discreto al APK directo, bajo el CTA del Play Store. */
+.apkLink {
+  display: block;
+  text-align: center;
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--muted, #667);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.apkLink:hover { color: inherit; }
