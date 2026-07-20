@@ -6,7 +6,8 @@ import styles from './annotations.module.css';
 // We measure the menu and clamp it to the viewport so it never spills off-screen
 // when the selection sits near the left/right (or bottom) edge.
 export default function SelectionMenu({
-  pos, existingId, onDictionary, onHighlight, onNote, onCopy, onShare, onDelete, onExplainAI, showAI,
+  pos, existingId, canAnnotate = true,
+  onDictionary, onHighlight, onNote, onCopy, onShare, onDelete, onExplainAI, showAI,
 }) {
   const ref = useRef(null);
   const [adj, setAdj] = useState(null);
@@ -36,11 +37,11 @@ export default function SelectionMenu({
     <div ref={ref} className={styles.menu} style={style} role="menu" onMouseDown={(e) => e.preventDefault()}>
       <button className={styles.menuBtn} onClick={onDictionary}>Dicc.</button>
       {showAI && <button className={styles.menuBtn} onClick={onExplainAI}>IA</button>}
-      {!existingId && <button className={styles.menuBtn} onClick={onHighlight}>Subrayar</button>}
-      <button className={styles.menuBtn} onClick={onNote}>{existingId ? 'Nota' : 'Nota'}</button>
+      {canAnnotate && !existingId && <button className={styles.menuBtn} onClick={onHighlight}>Subrayar</button>}
+      {canAnnotate && <button className={styles.menuBtn} onClick={onNote}>Nota</button>}
       <button className={styles.menuBtn} onClick={onCopy}>Copiar</button>
       <button className={styles.menuBtn} onClick={onShare}>Compartir</button>
-      {existingId && <button className={styles.menuBtn} onClick={onDelete}>Eliminar</button>}
+      {canAnnotate && existingId && <button className={styles.menuBtn} onClick={onDelete}>Eliminar</button>}
     </div>
   );
 }
