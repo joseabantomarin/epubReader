@@ -18,6 +18,8 @@ import SharedShelf from './SharedShelf.jsx';
 import loginStyles from '../auth/login.module.css';
 import Toolbar from './Toolbar.jsx';
 import BookCard from './BookCard.jsx';
+import { Paged } from './Paginator.jsx';
+import { usePageSize } from '../lib/usePagedList.js';
 import SettingsModal from './SettingsModal.jsx';
 import ShareDialog from './ShareDialog.jsx';
 import { loadSettings } from '../lib/readerSettings.js';
@@ -25,6 +27,7 @@ import { loadSettings } from '../lib/readerSettings.js';
 export default function LibraryPage() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const pageSize = usePageSize();
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -327,14 +330,18 @@ export default function LibraryPage() {
                   : 'No hay coincidencias.'}
               </p>
             ) : (
-              <div className={viewMode === 'list' ? styles.list : styles.grid}>
-                {filtered.map((b) => (
-                  <BookCard key={b.id} book={b} selectionMode={selectionMode}
-                    selected={selectedIds.has(b.id)} onActivate={onActivate}
-                    onGestureSelect={() => selectFromGesture(b.id)}
-                    onRate={(s) => rateBook(b.id, s)} onClear={() => clearBookRating(b.id)} />
-                ))}
-              </div>
+              <Paged list={filtered} pageSize={pageSize}>
+                {(paged) => (
+                  <div className={viewMode === 'list' ? styles.list : styles.grid}>
+                    {paged.map((b) => (
+                      <BookCard key={b.id} book={b} selectionMode={selectionMode}
+                        selected={selectedIds.has(b.id)} onActivate={onActivate}
+                        onGestureSelect={() => selectFromGesture(b.id)}
+                        onRate={(s) => rateBook(b.id, s)} onClear={() => clearBookRating(b.id)} />
+                    ))}
+                  </div>
+                )}
+              </Paged>
             )}
           </>
         )}
@@ -342,8 +349,12 @@ export default function LibraryPage() {
 
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>Libros Compartidos</h2>
-        <SharedShelf books={sharedFiltered} canRate={!isGuest} onOpen={openShared}
-          isAdmin={!!user?.isAdmin} onCensor={censorShared} viewMode={viewMode} />
+        <Paged list={sharedFiltered} pageSize={pageSize}>
+          {(paged) => (
+            <SharedShelf books={paged} canRate={!isGuest} onOpen={openShared}
+              isAdmin={!!user?.isAdmin} onCensor={censorShared} viewMode={viewMode} />
+          )}
+        </Paged>
       </section>
 
       {!isGuest && groupSectionsFiltered.map((g) => (
@@ -353,15 +364,21 @@ export default function LibraryPage() {
             Grupo: {g.name}{' '}
             <span style={{ fontWeight: 400, fontSize: '0.78em', opacity: 0.6 }}>· gestionar ›</span>
           </h2>
-          <SharedShelf books={g.books} canRate={false} onOpen={openShared} viewMode={viewMode} />
+          <Paged list={g.books} pageSize={pageSize}>
+            {(paged) => <SharedShelf books={paged} canRate={false} onOpen={openShared} viewMode={viewMode} />}
+          </Paged>
         </section>
       ))}
 
       {!isGuest && sharedWithMe.length > 0 && (
         <section className={styles.section}>
           <h2 className={styles.sectionTitle}>Compartido conmigo</h2>
-          <SharedShelf books={sharedWithMe} canRate={false}
-            onOpen={openShared} viewMode={viewMode} />
+          <Paged list={sharedWithMe} pageSize={pageSize}>
+            {(paged) => (
+              <SharedShelf books={paged} canRate={false}
+                onOpen={openShared} viewMode={viewMode} />
+            )}
+          </Paged>
         </section>
       )}
 
