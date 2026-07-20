@@ -300,3 +300,17 @@
   padding: 28px 18px; border: 1px dashed #c9ccd4; border-radius: 12px; text-align: center;
 }
 .guestLead { margin: 0; color: #4b5563; }
+
+/* Paginador de secciones de libros. */
+.paginator {
+  display: flex; justify-content: center; align-items: center;
+  gap: 6px; margin: 14px 0 4px; flex-wrap: wrap;
+}
+.pageBtn {
+  min-width: 34px; height: 34px; padding: 0 8px;
+  border: 1px solid var(--border); background: transparent;
+  border-radius: 8px; cursor: pointer; font-size: 14px; color: var(--fg);
+}
+.pageBtn:disabled { opacity: .4; cursor: default; }
+.pageBtn[data-current='true'] { background: var(--accent); color: #fff; border-color: transparent; }
+.pageEllipsis { padding: 0 2px; color: var(--muted); }
