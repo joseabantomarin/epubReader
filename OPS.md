@@ -155,17 +155,27 @@ scp /tmp/app-release.apk \
 
 Firma: lee `client/android/keystore.properties` (gitignored) o las env vars `MISLIBROS_KEYSTORE_*`. Ver "Firma de release" abajo.
 
-**ADVERTENCIA (verificado 2026-07-19):** el keystore local
-(`~/keystores/mislibros-release.jks`, CN=Jose Abanto, SHA-1 `98:7b:6c:15:…`) es
-una clave DISTINTA de la que usa el CI (CN=Misael Abanto, SHA-1 `d2:18:65:9a:…`).
-Solo la huella del CI está registrada en el cliente OAuth de Google: un APK
-firmado en local **falla el login de Google con código 10 (DEVELOPER_ERROR)**.
+**Firmas y login de Google (mapa verificado 2026-07-20).** Google Sign-In
+exige que la huella SHA-1 del certificado que firmó el APK tenga su PROPIO
+cliente OAuth Android (paquete `app.openlinks.mislibros`) en el proyecto de
+Google Cloud **número 823603281404** (ver selector de proyectos; NO es el
+proyecto llamado "mislibros", que está vacío). Si la firma no está registrada,
+el login falla con **código 10 (DEVELOPER_ERROR)**. Un cliente Android admite
+UNA huella; para otra firma se crea un cliente adicional, sin tocar los demás.
+
+| Clave | SHA-1 | Cliente OAuth |
+|---|---|---|
+| Debug (Android Studio) | `6A:28:D5:6A:…:61:BF` | "MisLibros Android (Debug)" ✅ |
+| CI / subida (CN=Misael Abanto) | `D2:18:65:9A:FC:D2:0C:56:75:0B:67:24:C2:03:BD:79:36:EA:B4:D2` | "MisLibros Android (CI release)" ✅ (creado 2026-07-20) |
+| Firma de Google Play (App Signing re-firma la tienda) | ver Play Console → Integridad de la app | la usa la versión de tienda ✅ |
+| Keystore local del Mac (`~/keystores/mislibros-release.jks`, CN=Jose Abanto) | `98:7B:6C:15:…` | ❌ NO registrada |
+
 Consecuencias:
 - El `mislibros.apk` público debe salir SIEMPRE del release del CI
-  (`gh release download vX.Y --pattern '*.apk'`), nunca del build local.
+  (`gh release download vX.Y --pattern '*.apk'`); sus sideloads ya autentican.
 - El build local (`assembleRelease`) sirve para verificar que compila, pero no
-  para distribuir; además, cambiar de uno a otro en el teléfono exige
-  desinstalar antes (las firmas no coinciden).
+  para distribuir (huella sin registrar); además, cambiar entre APKs de firmas
+  distintas en el teléfono exige desinstalar antes.
 
 ## JDKs instalados localmente
 
