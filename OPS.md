@@ -147,12 +147,25 @@ cd android
 JAVA_HOME=<ruta-jdk-21> ./gradlew assembleRelease   # o bundleRelease para el .aab del Play Store
 # 2) verificar que la URL absoluta esté en el bundle
 grep -oE '"https://mislibros\.openlinks\.app"' ../dist/assets/index-*.js
-# 3) subir el APK público
-scp app/build/outputs/apk/release/app-release.apk \
+# 3) subir el APK público — usar el del CI, NO el local (ver advertencia abajo)
+gh release download vX.Y --pattern '*.apk' --dir /tmp
+scp /tmp/app-release.apk \
     administrator@147.93.176.249:/home/administrator/epubReader/server/data/downloads/mislibros.apk
 ```
 
 Firma: lee `client/android/keystore.properties` (gitignored) o las env vars `MISLIBROS_KEYSTORE_*`. Ver "Firma de release" abajo.
+
+**ADVERTENCIA (verificado 2026-07-19):** el keystore local
+(`~/keystores/mislibros-release.jks`, CN=Jose Abanto, SHA-1 `98:7b:6c:15:…`) es
+una clave DISTINTA de la que usa el CI (CN=Misael Abanto, SHA-1 `d2:18:65:9a:…`).
+Solo la huella del CI está registrada en el cliente OAuth de Google: un APK
+firmado en local **falla el login de Google con código 10 (DEVELOPER_ERROR)**.
+Consecuencias:
+- El `mislibros.apk` público debe salir SIEMPRE del release del CI
+  (`gh release download vX.Y --pattern '*.apk'`), nunca del build local.
+- El build local (`assembleRelease`) sirve para verificar que compila, pero no
+  para distribuir; además, cambiar de uno a otro en el teléfono exige
+  desinstalar antes (las firmas no coinciden).
 
 ## JDKs instalados localmente
 
