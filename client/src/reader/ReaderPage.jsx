@@ -55,31 +55,6 @@ function rangeToViewportRect(range) {
   return { x: r.x + offX, y: r.y + offY, w: r.width, h: r.height };
 }
 
-// Diagnóstico de selección (SEL-DBG): panel superpuesto que registra en el
-// propio dispositivo los eventos de selección y sus estados. Se activa
-// visitando la app con ?seldbg=1 (persiste en localStorage; ?seldbg=0 lo
-// apaga) — invisible para cualquier otro usuario.
-function seldbgOn() {
-  try { return localStorage.getItem('epubreader.seldbg') === '1'; } catch { return false; }
-}
-function selDbg(msg) {
-  if (!seldbgOn()) return;
-  try {
-    let el = document.getElementById('__seldbg');
-    if (!el) {
-      el = document.createElement('div');
-      el.id = '__seldbg';
-      el.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:2147483647;'
-        + 'background:rgba(0,0,0,.82);color:#3f6;font:11px/1.35 monospace;'
-        + 'padding:6px 8px;max-height:45%;overflow:auto;white-space:pre-wrap;pointer-events:none;';
-      document.body.appendChild(el);
-    }
-    const line = Math.round(performance.now()) + ' ' + msg;
-    const prev = el.textContent.split('\n').slice(1, 22).join('\n');
-    el.textContent = 'SEL-DBG build 4 (web) — mantén presionado y selecciona\n' + line + '\n' + prev;
-  } catch { /* ignore */ }
-}
-
 export default function ReaderPage() {
   const { bookId } = useParams();
   const [searchParams] = useSearchParams();
@@ -220,7 +195,6 @@ export default function ReaderPage() {
             doc.documentElement.setAttribute('lang', String(lang).split(/[-_]/)[0]);
           }
           docsRef.current.set(index, { doc, iframe: doc.defaultView?.frameElement || null });
-          selDbg('load idx=' + index);
 
           // Read the current selection and, if it's real, show the menu.
           // Returns true when a menu was shown, false when the selection is
@@ -229,34 +203,23 @@ export default function ReaderPage() {
           const showSelectionIfAny = () => {
             // While reading aloud, foliate highlights (selects) each spoken
             // block — don't pop the selection menu for that.
-            if (readingRef.current) { selDbg('show: reading, skip'); return false; }
+            if (readingRef.current) return false;
             const sel = doc.getSelection();
-            if (!sel || sel.isCollapsed || sel.rangeCount === 0) { selDbg('show: no/collapsed sel'); return false; }
+            if (!sel || sel.isCollapsed || sel.rangeCount === 0) return false;
             const range = sel.getRangeAt(0);
             const text = sel.toString().trim();
-            if (!text) { selDbg('show: empty text'); return false; }
+            if (!text) return false;
             const rect = rangeToViewportRect(range);
-            if (!rect) { selDbg('show: NULL rect (0x0)'); return false; }
+            if (!rect) return false;
             let cfi = null;
             try { cfi = view.getCFI(index, range); } catch {}
             setSelection({ text, cfi, rect, existingId: null });
-            selDbg('show: MENU len=' + text.length);
             return true;
-          };
-          // Instantánea del estado de getSelection() en cada evento (SEL-DBG).
-          const snap = (ev) => {
-            if (!seldbgOn()) return;
-            const sel = doc.getSelection();
-            const text = sel ? sel.toString().trim() : '';
-            let rect = null;
-            try { if (sel && sel.rangeCount) rect = rangeToViewportRect(sel.getRangeAt(0)); } catch { /* ignore */ }
-            selDbg(`${ev} rc=${sel ? sel.rangeCount : '-'} col=${sel ? sel.isCollapsed : '-'} len=${text.length} rect=${rect ? Math.round(rect.w) + 'x' + Math.round(rect.h) : 'null'}`);
           };
           // Pointer release (tap or end of a long-press selection). This is the
           // ONLY path allowed to dismiss the menu: a tap on empty space
           // collapses the selection, so we close the menu.
           const onPointerUp = () => {
-            snap('up');
             if (readingRef.current) return;
             if (!showSelectionIfAny()) setSelection((prev) => (prev?.existingId ? prev : null));
           };
@@ -268,39 +231,12 @@ export default function ReaderPage() {
           // onPointerUp (a real tap).
           let pending = null;
           const debouncedSelChange = () => {
-            snap('selchange');
             if (pending) clearTimeout(pending);
             pending = setTimeout(showSelectionIfAny, 150);
           };
           doc.addEventListener('selectionchange', debouncedSelChange);
-          doc.addEventListener('touchstart', () => snap('touchstart'), { passive: true });
-          doc.addEventListener('pointerup', () => snap('pointerup'), { passive: true });
           doc.addEventListener('touchend', onPointerUp);
           doc.addEventListener('mouseup', onPointerUp);
-          if (seldbgOn()) {
-            doc.addEventListener('pointerdown', () => snap('pointerdown'), { passive: true });
-            doc.addEventListener('pointercancel', () => snap('pointercancel'), { passive: true });
-            doc.addEventListener('touchcancel', () => snap('touchcancel'), { passive: true });
-            doc.addEventListener('selectstart', () => snap('selectstart'), { passive: true });
-            doc.addEventListener('contextmenu', () => snap('contextmenu'));
-            let lastMove = 0;
-            doc.addEventListener('touchmove', () => {
-              const now = performance.now();
-              if (now - lastMove > 500) { lastMove = now; snap('touchmove'); }
-            }, { passive: true });
-            // Sondeo del estado real de la selección: detecta selecciones que
-            // existen aunque sus eventos nunca lleguen a este documento.
-            let lastPoll = '';
-            const pollId = setInterval(() => {
-              const sel = doc.getSelection();
-              const text = sel ? sel.toString().trim() : '';
-              let rect = null;
-              try { if (sel && sel.rangeCount) rect = rangeToViewportRect(sel.getRangeAt(0)); } catch { /* ignore */ }
-              const state = `col=${sel ? sel.isCollapsed : '-'} len=${text.length} rect=${rect ? Math.round(rect.w) + 'x' + Math.round(rect.h) : 'null'}`;
-              if (state !== lastPoll) { lastPoll = state; selDbg('poll: ' + state); }
-            }, 500);
-            cleanups.push(() => clearInterval(pollId));
-          }
 
           // PDF page-turn by drag: foliate's fixed-layout renderer doesn't do
           // this itself, so we detect a quick horizontal swipe on the page doc.
@@ -546,24 +482,6 @@ export default function ReaderPage() {
         };
         window.addEventListener('hardwareVolume', onVolume);
         cleanups.push(() => window.removeEventListener('hardwareVolume', onVolume));
-
-        // SEL-DBG: ¿este motor reporta la selección del iframe con un
-        // selectionchange en el documento padre en vez del propio iframe?
-        if (seldbgOn()) {
-          const topSel = () => {
-            const s = document.getSelection();
-            selDbg(`selchange:TOP rc=${s ? s.rangeCount : '-'} col=${s ? s.isCollapsed : '-'} len=${s ? s.toString().trim().length : 0}`);
-          };
-          document.addEventListener('selectionchange', topSel);
-          cleanups.push(() => document.removeEventListener('selectionchange', topSel));
-          // ¿Los toques aterrizan en la página padre en vez del iframe del
-          // capítulo? (los eventos del iframe no burbujean hasta aquí)
-          for (const ev of ['touchstart', 'touchend', 'touchcancel', 'pointerdown', 'pointerup', 'pointercancel']) {
-            const h = () => selDbg('TOP:' + ev);
-            window.addEventListener(ev, h, { capture: true, passive: true });
-            cleanups.push(() => window.removeEventListener(ev, h, { capture: true }));
-          }
-        }
       } catch (e) {
         console.error('[reader] error', e);
         setError(e.message);
