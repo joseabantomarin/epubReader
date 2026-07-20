@@ -3,6 +3,7 @@ import request from 'supertest';
 import express from 'express';
 import { makeDb, insertUser, authHeader } from './helpers.js';
 import { createAIRouter } from '../src/routes/ai.js';
+import { ANON_AI_LIMIT } from '../src/aiQuota.js';
 import { config } from '../src/config.js';
 
 function app(db) {
@@ -22,10 +23,41 @@ describe('POST /api/ai/explain', () => {
   });
   afterEach(() => { config.groqApiKey = ''; vi.restoreAllMocks(); });
 
-  it('401 without auth', async () => {
+  it('anonymous within quota gets an explanation', async () => {
     config.groqApiKey = 'k';
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ choices: [{ message: { content: 'Anónimo ok.' } }] }),
+    });
     const res = await request(a).post('/api/ai/explain').send({ text: 'hola' });
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ explanation: 'Anónimo ok.' });
+  });
+
+  it('429 ai_quota when an anonymous IP exhausts the daily limit', async () => {
+    config.groqApiKey = 'k';
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ choices: [{ message: { content: 'ok' } }] }),
+    });
+    let last = null;
+    for (let i = 0; i <= ANON_AI_LIMIT + 1; i++) {
+      last = await request(a).post('/api/ai/explain').send({ text: 'hola' });
+      if (last.status === 429) break;
+    }
+    expect(last.status).toBe(429);
+    expect(last.body).toMatchObject({ error: 'ai_quota' });
+  });
+
+  it('authenticated users are not limited by the anonymous quota', async () => {
+    // Corre tras agotar el cupo anónimo: la misma IP con token sigue pasando.
+    config.groqApiKey = 'k';
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ choices: [{ message: { content: 'Con sesión.' } }] }),
+    });
+    const res = await request(a).post('/api/ai/explain').set(authHeader(user)).send({ text: 'hola' });
+    expect(res.status).toBe(200);
   });
 
   it('503 when no API key is configured', async () => {
