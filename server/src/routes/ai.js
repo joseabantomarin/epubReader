@@ -1,5 +1,6 @@
 import { Router } from 'express';
-import { authRequired } from '../middleware/authRequired.js';
+import { authOptional } from '../middleware/authOptional.js';
+import { consumeAnonQuota } from '../aiQuota.js';
 import { config } from '../config.js';
 
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
@@ -10,7 +11,7 @@ const SYSTEM_PROMPT =
 
 export function createAIRouter() {
   const r = Router();
-  r.use(authRequired);
+  r.use(authOptional);
 
   r.post('/explain', async (req, res) => {
     if (!config.groqApiKey) return res.status(503).json({ error: 'ai_disabled' });
@@ -28,6 +29,10 @@ export function createAIRouter() {
       if (raw) convo = [{ role: 'user', content: raw.slice(0, MAX_CHARS) }];
     }
     if (!convo || !convo.length) return res.status(400).json({ error: 'missing_text' });
+    // Anónimos: cupo diario por IP (req.ip es real, trust proxy configurado).
+    if (!req.user && !consumeAnonQuota(req.ip)) {
+      return res.status(429).json({ error: 'ai_quota' });
+    }
     try {
       const groqRes = await fetch(GROQ_URL, {
         method: 'POST',
