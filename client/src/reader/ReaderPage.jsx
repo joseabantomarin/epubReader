@@ -196,32 +196,47 @@ export default function ReaderPage() {
           }
           docsRef.current.set(index, { doc, iframe: doc.defaultView?.frameElement || null });
 
-          const onSelectionChange = () => {
+          // Read the current selection and, if it's real, show the menu.
+          // Returns true when a menu was shown, false when the selection is
+          // empty/collapsed. It never clears on its own — dismissal is the
+          // callers' job (see onPointerUp).
+          const showSelectionIfAny = () => {
             // While reading aloud, foliate highlights (selects) each spoken
             // block — don't pop the selection menu for that.
-            if (readingRef.current) return;
+            if (readingRef.current) return false;
             const sel = doc.getSelection();
-            if (!sel || sel.isCollapsed || sel.rangeCount === 0) {
-              setSelection((prev) => (prev?.existingId ? prev : null));
-              return;
-            }
+            if (!sel || sel.isCollapsed || sel.rangeCount === 0) return false;
             const range = sel.getRangeAt(0);
             const text = sel.toString().trim();
-            if (!text) { setSelection(null); return; }
+            if (!text) return false;
             const rect = rangeToViewportRect(range);
-            if (!rect) return;
+            if (!rect) return false;
             let cfi = null;
             try { cfi = view.getCFI(index, range); } catch {}
             setSelection({ text, cfi, rect, existingId: null });
+            return true;
           };
+          // Pointer release (tap or end of a long-press selection). This is the
+          // ONLY path allowed to dismiss the menu: a tap on empty space
+          // collapses the selection, so we close the menu.
+          const onPointerUp = () => {
+            if (readingRef.current) return;
+            if (!showSelectionIfAny()) setSelection((prev) => (prev?.existingId ? prev : null));
+          };
+          // selectionchange only PROMOTES a fresh selection into the menu; it
+          // never dismisses. Some WebViews (seen on an Android 14/15 Motorola)
+          // fire a spurious "collapsed" selectionchange right after the
+          // selection is made; if that were allowed to clear the state, the
+          // menu would appear and vanish instantly. Dismissal is left to
+          // onPointerUp (a real tap).
           let pending = null;
           const debouncedSelChange = () => {
             if (pending) clearTimeout(pending);
-            pending = setTimeout(onSelectionChange, 150);
+            pending = setTimeout(showSelectionIfAny, 150);
           };
           doc.addEventListener('selectionchange', debouncedSelChange);
-          doc.addEventListener('touchend', onSelectionChange);
-          doc.addEventListener('mouseup', onSelectionChange);
+          doc.addEventListener('touchend', onPointerUp);
+          doc.addEventListener('mouseup', onPointerUp);
 
           // PDF page-turn by drag: foliate's fixed-layout renderer doesn't do
           // this itself, so we detect a quick horizontal swipe on the page doc.
