@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import styles from './annotations.module.css';
-import { api } from '../lib/api.js';
+import { api, getToken } from '../lib/api.js';
+
+const AUTH_MSG = 'Autentícate con Google para seguir usando la IA';
 
 // Mini-chat over the selected text. Opening it (text non-null) fires a first
 // request framing the fragment with the book's title/author; the model explains
@@ -13,12 +15,14 @@ export default function AIExplainModal({ text, title, author, onClose }) {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [blocked, setBlocked] = useState(false);
   const [input, setInput] = useState('');
   const bodyRef = useRef(null);
 
   // Fire the first request when opened.
   useEffect(() => {
-    if (!text) { setMessages([]); setInput(''); setError(null); setLoading(false); return; }
+    if (!text) { setMessages([]); setInput(''); setError(null); setLoading(false); setBlocked(false); return; }
+    setBlocked(false);
     const ref = author ? `(del libro «${title}» de ${author})` : `(del libro «${title}»)`;
     const initial = `Explica con claridad y algo de detalle (uno o dos párrafos) el siguiente `
       + `fragmento ${ref}, basándote en el propio texto. Si no hay suficiente contexto para `
@@ -42,8 +46,14 @@ export default function AIExplainModal({ text, title, author, onClose }) {
     try {
       const { explanation } = await api.explainWithAI(convo);
       setMessages([...convo, { role: 'assistant', content: explanation }]);
-    } catch {
-      setError('No se pudo consultar la IA.');
+    } catch (e) {
+      // Cupo anónimo agotado, o backend aún exigiendo sesión: empujar al login.
+      if (e?.message === 'ai_quota' || (e?.message === 'unauthorized' && !getToken())) {
+        setError(AUTH_MSG);
+        setBlocked(true);
+      } else {
+        setError('No se pudo consultar la IA.');
+      }
     } finally {
       setLoading(false);
     }
@@ -81,6 +91,9 @@ export default function AIExplainModal({ text, title, author, onClose }) {
           ))}
           {loading && <div className={`${styles.chatMsg} ${styles.chatAI}`}>Consultando…</div>}
           {error && <p className={styles.dictEmpty}>{error}</p>}
+          {!getToken() && !blocked && visible.some((m) => m.role === 'assistant') && (
+            <p className={styles.dictEmpty}>{AUTH_MSG}</p>
+          )}
         </div>
 
         <div className={styles.chatInputRow}>
@@ -89,10 +102,11 @@ export default function AIExplainModal({ text, title, author, onClose }) {
             rows={1}
             placeholder="Pregunta algo más…"
             value={input}
+            disabled={blocked}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend(); } }}
           />
-          <button className={styles.btnPrimary} onClick={onSend} disabled={loading || !input.trim()}>
+          <button className={styles.btnPrimary} onClick={onSend} disabled={loading || blocked || !input.trim()}>
             Enviar
           </button>
         </div>

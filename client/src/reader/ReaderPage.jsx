@@ -972,26 +972,25 @@ export default function ReaderPage() {
         </>
       )}
 
-      {!isShared && (
-        <SelectionMenu
-          pos={reading ? null : menuPos}
-          existingId={selection?.existingId}
-          onDictionary={onDictionary}
-          onHighlight={onHighlight}
-          onNote={onNote}
-          onCopy={onCopy}
-          onShare={onShare}
-          onDelete={onDelete}
-          showAI={online}
-          onExplainAI={() => {
-            if (!selection?.text) return;
-            setAiText(selection.text);
-            // Limpia la selección al abrir: los gatillos nativos se dibujan
-            // por encima de cualquier modal mientras la selección siga viva.
-            clearSelection();
-          }}
-        />
-      )}
+      <SelectionMenu
+        pos={reading ? null : menuPos}
+        existingId={selection?.existingId}
+        canAnnotate={!isShared}
+        onDictionary={onDictionary}
+        onHighlight={onHighlight}
+        onNote={onNote}
+        onCopy={onCopy}
+        onShare={onShare}
+        onDelete={onDelete}
+        showAI={online}
+        onExplainAI={() => {
+          if (!selection?.text) return;
+          setAiText(selection.text);
+          // Limpia la selección al abrir: los gatillos nativos se dibujan
+          // por encima de cualquier modal mientras la selección siga viva.
+          clearSelection();
+        }}
+      />
       <WiktionaryModal
         open={!!dictTerm}
         term={dictTerm || ''}
