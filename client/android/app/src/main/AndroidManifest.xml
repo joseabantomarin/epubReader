@@ -67,4 +67,10 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Guardar los libros descargados en la carpeta pública de Descargas.
+         Desde Android 10 (API 29) el gestor de descargas no necesita permiso. -->
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
 </manifest>
