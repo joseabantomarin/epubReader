@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
-import { Heart, ExternalLink, ArrowRight, X } from 'lucide-react';
+import { Heart, ExternalLink, ArrowRight, Download, X } from 'lucide-react';
 import styles from './PitchSection.module.css';
 
 const PAYPAL_URL = 'https://www.paypal.com/ncp/payment/VZ3CFJK4YDBML';
@@ -26,23 +26,23 @@ export default function PitchSection() {
 
   return (
     <div className={styles.wrap}>
-      {/* Get-the-app CTA — web only; pointless inside the Android app itself. */}
+      {/* Get-the-app CTA — web only; pointless inside the Android app itself.
+          El botón entrega el APK directamente (siempre la última versión); el
+          Play Store queda como alternativa secundaria. */}
       {!IS_NATIVE && (
-        <a
-          className={styles.downloadApp}
-          href={PLAYSTORE_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <svg className={styles.downloadAppIcon} viewBox="0 0 512 512" width="22" height="22" aria-hidden="true">
-            <path fill="currentColor" d="M325.3 234.3 104.6 13l280.8 161.2-60.1 60.1zM47 0C34 6.8 25.3 19.2 25.3 35.3v441.3c0 16.1 8.7 28.5 21.7 35.3l256.6-256L47 0zm425.2 225.6-58.9-34-65.7 64.5 65.7 64.5 60.1-34.7c18-14.3 18-46.5-1.2-60.3zM104.6 499l280.8-161.2-60.1-60.1L104.6 499z"/>
-          </svg>
+        <a className={styles.downloadApp} href={APK_URL} download>
+          <Download className={styles.downloadAppIcon} size={22} strokeWidth={2} aria-hidden />
           Descargar Aplicación
         </a>
       )}
       {!IS_NATIVE && (
-        <a className={styles.apkLink} href={APK_URL} download>
-          o descarga el APK directamente
+        <a
+          className={styles.apkLink}
+          href={PLAYSTORE_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          o descárgala desde Google Play
         </a>
       )}
 
