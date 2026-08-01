@@ -19,7 +19,10 @@ import loginStyles from '../auth/login.module.css';
 import Toolbar from './Toolbar.jsx';
 import BookCard from './BookCard.jsx';
 import { Paged } from './Paginator.jsx';
+import DownloadDialog from './DownloadDialog.jsx';
 import { usePageSize } from '../lib/usePagedList.js';
+import { bookDownloadUrl } from '../lib/api.js';
+import { triggerDownload } from '../lib/download.js';
 import SettingsModal from './SettingsModal.jsx';
 import ShareDialog from './ShareDialog.jsx';
 import { loadSettings } from '../lib/readerSettings.js';
@@ -37,6 +40,7 @@ export default function LibraryPage() {
   const [selectedIds, setSelectedIds] = useState(() => new Set());
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [downloadBook, setDownloadBook] = useState(null);
   const [viewMode, setViewMode] = useState(() => loadSettings().viewMode);
   const [isFullscreen, toggleFullscreen] = useFullscreen();
   const [offline, setOffline] = useState(false);
@@ -204,6 +208,20 @@ export default function LibraryPage() {
     if (selectedIds.size === 0) return;
     setShareOpen(true);
   };
+
+  // Descarga del único libro marcado: si ya es PDF no hay nada que elegir.
+  const downloadSelected = () => {
+    if (selectedIds.size !== 1) return;
+    const [id] = [...selectedIds];
+    const book = books.find((b) => b.id === id);
+    if (!book) return;
+    if ((book.format || 'epub') === 'pdf') {
+      triggerDownload(bookDownloadUrl(book.id));
+      cancelSelection();
+      return;
+    }
+    setDownloadBook(book);
+  };
   const unshareSelected = async () => {
     const ids = [...selectedIds];
     if (ids.length === 0) return;
@@ -316,6 +334,7 @@ export default function LibraryPage() {
               onDeleteSelected={deleteSelected}
               onShareSelected={shareSelected}
               onUnshareSelected={unshareSelected}
+              onDownloadSelected={downloadSelected}
             />
             {offline && (
               <div className={styles.offlineBanner}>Modo offline — viendo libros guardados localmente</div>
@@ -383,6 +402,12 @@ export default function LibraryPage() {
       )}
 
       <SettingsModal open={settingsOpen} onClose={() => { setSettingsOpen(false); setViewMode(loadSettings().viewMode); }} />
+
+      <DownloadDialog
+        open={!!downloadBook}
+        book={downloadBook}
+        onClose={() => { setDownloadBook(null); cancelSelection(); }}
+      />
 
       <ShareDialog
         open={shareOpen}

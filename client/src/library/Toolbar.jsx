@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { Search, Plus, CheckSquare, Trash2, Share2, X } from 'lucide-react';
+import { Search, Plus, CheckSquare, Trash2, Share2, Download, X } from 'lucide-react';
 import styles from './library.module.css';
 
 export default function Toolbar({
@@ -7,7 +7,7 @@ export default function Toolbar({
   selectionMode, selectedCount,
   onAddFile,
   onEnterSelection, onCancelSelection, onDeleteSelected,
-  onShareSelected, onUnshareSelected,
+  onShareSelected, onUnshareSelected, onDownloadSelected,
   uploading,
 }) {
   const fileRef = useRef(null);
@@ -63,6 +63,15 @@ export default function Toolbar({
               disabled={selectedCount === 0}
             >
               <X size={16} strokeWidth={2} aria-hidden /> Dejar de compartir ({selectedCount})
+            </button>
+            {/* Descargar es de a un libro: con varios marcados no aplica. */}
+            <button
+              className={styles.btn}
+              onClick={onDownloadSelected}
+              disabled={selectedCount !== 1}
+              title={selectedCount !== 1 ? 'Selecciona un solo libro para descargarlo' : 'Descargar'}
+            >
+              <Download size={16} strokeWidth={2} aria-hidden /> Descargar
             </button>
             <button className={styles.btn} onClick={onCancelSelection}>Cancelar</button>
           </>

@@ -124,6 +124,14 @@ export const api = {
 export function bookFileUrl(bookId) {
   return `${BASE}/api/books/${bookId}/file`;
 }
+// La descarga es una navegación directa (o la hace el gestor de descargas de
+// Android), así que no puede llevar cabecera Authorization: el token va en la
+// query, igual que en las portadas.
+export function bookDownloadUrl(bookId, { pdf = false } = {}) {
+  const token = getToken();
+  const q = token ? `?_t=${encodeURIComponent(token)}` : '';
+  return `${BASE}/api/books/${bookId}/download${pdf ? '.pdf' : ''}${q}`;
+}
 // Cover is loaded via <img src>, which can't set Authorization. Pass token as query.
 export function bookCoverUrl(bookId) {
   const token = getToken();
