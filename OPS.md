@@ -77,6 +77,20 @@ admin debe **volver a iniciar sesión** para que su `user.isAdmin` se actualice.
 Censurar oculta el libro de la vitrina y bloquea su apertura por terceros; el dueño
 conserva acceso y lo ve marcado con la razón.
 
+## Descarga de libros en PDF (depende de Chrome)
+
+La conversión EPUB → PDF (`GET /api/books/:id/download.pdf`) renderiza el libro
+con **Google Chrome headless**, ya instalado en el servidor (`/usr/bin/google-chrome`).
+No hay paquete npm que lo reemplace: si Chrome desaparece (reinstalación del
+servidor, limpieza de paquetes), la ruta responde **500 `pdf_failed`** y la
+descarga del original sigue funcionando. Ruta alternativa configurable con
+`CHROME_BIN` en `server/.env`.
+
+Los PDF convertidos se cachean junto al libro como
+`server/data/books/<userId>/<bookId>.conv.pdf` (se regeneran solos si el EPUB
+cambia y los borra `removeBookFiles` al eliminar el libro). Referencia medida en
+producción: primera conversión ~9 s para un EPUB de 900 KB; desde caché, ~0,2 s.
+
 ## IA (Explicar con IA)
 
 La función "Explicar con IA" usa Groq. Requiere en el `.env` del servidor:
