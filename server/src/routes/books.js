@@ -5,6 +5,8 @@ import path from 'node:path';
 import { authRequired } from '../middleware/authRequired.js';
 import { parseEpub } from '../epub/parser.js';
 import { bookPath, coverPath, ensureUserDir, removeBookFiles } from '../storage.js';
+import { getBookPdf } from '../pdf/convert.js';
+import { attachmentName, contentDisposition } from '../downloadName.js';
 import { config } from '../config.js';
 
 const ZIP_MAGIC = Buffer.from([0x50, 0x4b, 0x03, 0x04]); // "PK\x03\x04"
@@ -336,6 +338,41 @@ export function createBooksRouter(db, dataDir) {
     if (!book) return;
     if (!book.cover_path) return res.status(404).end();
     res.sendFile(path.join(dataDir, book.cover_path));
+  });
+
+  // Descarga del archivo original. A diferencia de /file (que alimenta al
+  // lector), fuerza "guardar como" con un nombre legible.
+  r.get('/:id/download', (req, res) => {
+    const book = getOwnedBook(req, res);
+    if (!book) return;
+    const format = book.format || 'epub';
+    const mime = format === 'pdf' ? 'application/pdf' : 'application/epub+zip';
+    res.setHeader('Content-Disposition', contentDisposition(attachmentName(book)));
+    res.type(mime).sendFile(bookPath(dataDir, req.user.sub, book.id, format));
+  });
+
+  // Descarga en PDF: si el libro ya es PDF se sirve tal cual; si es EPUB se
+  // convierte con Chrome headless y se cachea junto al original.
+  r.get('/:id/download.pdf', async (req, res) => {
+    const book = getOwnedBook(req, res);
+    if (!book) return;
+    const name = contentDisposition(attachmentName(book, 'pdf'));
+    if ((book.format || 'epub') === 'pdf') {
+      res.setHeader('Content-Disposition', name);
+      res.type('application/pdf').sendFile(bookPath(dataDir, req.user.sub, book.id, 'pdf'));
+      return;
+    }
+    const epubPath = bookPath(dataDir, req.user.sub, book.id, 'epub');
+    const pdfPath = path.join(path.dirname(epubPath), `${book.id}.conv.pdf`);
+    try {
+      await getBookPdf({ epubPath, pdfPath });
+      res.setHeader('Content-Disposition', name);
+      res.type('application/pdf').sendFile(pdfPath);
+    } catch (e) {
+      const invalid = String(e?.message || '').startsWith('epub_invalid');
+      console.error('[download.pdf]', e?.message || e);
+      res.status(invalid ? 422 : 500).json({ error: invalid ? 'epub_invalid' : 'pdf_failed' });
+    }
   });
 
   return r;
